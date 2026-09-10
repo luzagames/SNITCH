@@ -14,9 +14,8 @@ export interface PlayerSeatData {
 }
 
 export function PlayerSeat({ player, featured = false }: { player: PlayerSeatData; featured?: boolean }) {
-  const avatarSize = featured ? 100 : 72;
-  const cardSize = featured ? 42 : 34;
-  const nameFontSize = featured ? 24 : 20;
+  const avatarSize = featured ? 140 : 72;
+  const nameFontSize = featured ? 28 : 20;
 
   return (
     <div
@@ -39,11 +38,16 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
         <Avatar alive={player.alive} size={avatarSize} />
       </div>
 
-      <div style={{ display: 'flex', gap: 4 }}>
-        {player.cardStates.map((state, i) => (
-          <CardSlot key={i} state={state} size={cardSize} />
-        ))}
-      </div>
+      {/* El asiento destacado (vos) no muestra su propia fila de cartas acá
+          — tu mano ya se ve grande y legible aparte, en "TU MANO". Mostrarla
+          also acá era literalmente la misma información dos veces. */}
+      {!featured && (
+        <div style={{ display: 'flex', gap: 4 }}>
+          {player.cardStates.map((state, i) => (
+            <CardSlot key={i} state={state} size={34} />
+          ))}
+        </div>
+      )}
 
       <span style={{ fontSize: nameFontSize }}>
         {player.name}

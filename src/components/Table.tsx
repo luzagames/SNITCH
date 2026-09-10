@@ -4,16 +4,17 @@ import { PlayerSeat } from './PlayerSeat';
 import type { PlayerSeatData } from './PlayerSeat';
 
 const WIDTH = 820;
-const HEIGHT = 760;
+const HEIGHT = 650;
 const CENTER_X = WIDTH / 2;
-const CENTER_Y = HEIGHT / 2 - 30;
+const CENTER_Y = 350; // fijo, independiente de HEIGHT, para no correr el margen de arriba
 const RADIUS_X = 320;
 const RADIUS_Y = 210;
 
 // Posición de "vos": fija, siempre abajo al centro, sin importar el orden
-// real de turno. Coincide con el asiento agrandado (featured). Se calcula
-// dejando lugar para el logo (arriba) y el propio tamaño del asiento grande.
-const YOU_Y = CENTER_Y + 197;
+// real de turno. Coincide con el asiento agrandado (featured), que ahora
+// no tiene fila de cartas propia (la mano se ve aparte, en "TU MANO"),
+// así que es más compacto en alto pese al avatar más grande.
+const YOU_Y = CENTER_Y + 175;
 
 // Los demás jugadores se distribuyen en un arco arriba de la mesa (no toda
 // la elipse, solo la mitad superior), centrado en la posición "12 en punto"

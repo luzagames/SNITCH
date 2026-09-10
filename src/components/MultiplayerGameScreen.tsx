@@ -186,7 +186,7 @@ export function MultiplayerGameScreen({
       </div>
 
       {!iAmEliminated && myHand.length > 0 && (
-        <div style={{ textAlign: 'center', margin: '16px 0' }}>
+        <div style={{ textAlign: 'center', margin: '4px 0 12px' }}>
           <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginBottom: 6 }}>TU MANO</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             {myHand.map((card, i) => (
