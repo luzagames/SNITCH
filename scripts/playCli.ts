@@ -2,7 +2,7 @@ import { createGame, currentPlayer, resolveAsk, resolveKill } from '../src/game/
 import { fullCardSet } from '../src/game/deck';
 import { questionLabel } from '../src/game/askQuestions';
 import { cardLabel, heartsLabel } from '../src/game/display';
-import type { AskQuestion, GameState, Rank, Suit } from '../src/game/types';
+import type { AskQuestion, Card, GameState, Rank, Suit } from '../src/game/types';
 
 // Fuente de input abstraída: en producción usamos readline-sync (necesita
 // una terminal real). Para poder testear la lógica de menús/parseo sin
@@ -54,18 +54,20 @@ function printOwnHand(state: GameState) {
   console.log(`\nTu mano (${p.name}): ${p.hand.map(cardLabel).join('  ')}`);
 }
 
-async function chooseKillCard(): Promise<{ suit: Suit; rank: Rank }> {
+async function chooseKillCard(): Promise<Card> {
   const deck = fullCardSet();
   console.log('\nElegí una carta para KILL:');
-  const indexed: { index: number; card: { suit: Suit; rank: Rank } }[] = [];
+  const indexed: { index: number; card: Card }[] = [];
   deck.forEach((c, i) => indexed.push({ index: i, card: c }));
   for (const suit of ['spades', 'hearts', 'diamonds', 'clubs'] as Suit[]) {
     const row = indexed
-      .filter((x) => x.card.suit === suit)
+      .filter((x) => x.card.kind === 'standard' && x.card.suit === suit)
       .map((x) => `[${x.index}] ${cardLabel(x.card)}`)
       .join(' ');
     console.log(row);
   }
+  const jokerEntry = indexed.find((x) => x.card.kind === 'joker');
+  if (jokerEntry) console.log(`[${jokerEntry.index}] JOKER`);
   while (true) {
     const answer = await ask('Número de carta: ');
     const idx = parseInt(answer, 10);

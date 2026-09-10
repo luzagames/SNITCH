@@ -109,41 +109,44 @@ export function resolveKill(state: GameState, killerId: string, targetCard: Card
 
   const targetId = cardId(targetCard);
 
-  // Caso especial: bluff sobre la propia carta. Como el mazo no tiene
-  // duplicados exactos, si el killer tiene esta carta, es matemáticamente
-  // imposible que otro jugador también la tenga. Se trata como un KILL
-  // fallido: pierde 1 corazón, pero conserva la carta (no hay reveal).
-  const isSelfBluff = killer.hand.some((c) => cardId(c) === targetId);
-
-  if (isSelfBluff) {
-    killer.lives -= 1;
-    checkAndEliminate(state, killer);
-
-    const result: KillResult = {
-      killerId,
-      targetCard,
-      hit: false,
-      eliminatedPlayer: !killer.alive,
-      heartLost: true,
-      selfBluff: true,
-    };
-
-    state.history.push({ type: 'kill', result });
-
-    if (!checkVictory(state)) {
-      advanceTurn(state);
-    }
-
-    return result;
-  }
-
-  // Buscamos entre el resto de jugadores vivos (ya descartamos al killer).
+  // Buscamos primero entre los DEMÁS jugadores vivos (sin incluir al
+  // killer). Antes se asumía que si el killer tenía la carta, nadie más
+  // podía tenerla (el mazo no tenía duplicados) — pero con los 2 Jokers
+  // eso ya no es cierto: el killer puede tener un Joker Y otro jugador
+  // tener el otro. Por eso buscamos afuera primero, y solo si nadie más
+  // la tiene recién ahí miramos si es un bluff sobre la propia mano.
   let hitPlayer: Player | undefined;
   for (const p of state.players) {
-    if (!p.alive) continue;
+    if (!p.alive || p.id === killerId) continue;
     if (p.hand.some((c) => cardId(c) === targetId)) {
       hitPlayer = p;
       break;
+    }
+  }
+
+  if (!hitPlayer) {
+    const isSelfBluff = killer.hand.some((c) => cardId(c) === targetId);
+
+    if (isSelfBluff) {
+      killer.lives -= 1;
+      checkAndEliminate(state, killer);
+
+      const result: KillResult = {
+        killerId,
+        targetCard,
+        hit: false,
+        eliminatedPlayer: !killer.alive,
+        heartLost: true,
+        selfBluff: true,
+      };
+
+      state.history.push({ type: 'kill', result });
+
+      if (!checkVictory(state)) {
+        advanceTurn(state);
+      }
+
+      return result;
     }
   }
 
@@ -205,19 +208,21 @@ export function resolveKill(state: GameState, killerId: string, targetCard: Card
 function matchesQuestion(hand: Card[], q: AskQuestion): boolean {
   switch (q.id) {
     case 'GREATER_THAN':
-      return hand.some((c) => c.rank > (q.value as number));
+      return hand.some((c) => c.kind === 'standard' && c.rank > (q.value as number));
     case 'LOWER_THAN':
-      return hand.some((c) => c.rank < (q.value as number));
+      return hand.some((c) => c.kind === 'standard' && c.rank < (q.value as number));
     case 'BETWEEN':
-      return hand.some((c) => c.rank >= (q.min as number) && c.rank <= (q.max as number));
+      return hand.some((c) => c.kind === 'standard' && c.rank >= (q.min as number) && c.rank <= (q.max as number));
     case 'OF_SUIT':
-      return hand.some((c) => c.suit === q.suit);
+      return hand.some((c) => c.kind === 'standard' && c.suit === q.suit);
     case 'OF_VALUE':
-      return hand.some((c) => c.rank === (q.value as number));
+      return hand.some((c) => c.kind === 'standard' && c.rank === (q.value as number));
     case 'REPEATED_VALUE_IN_HAND': {
-      // ¿Tiene dos o más cartas del mismo número en su propia mano?
+      // ¿Tiene dos o más cartas del mismo número en su propia mano? El
+      // Joker no tiene número, así que no participa de esta cuenta.
       const seen = new Set<number>();
       for (const c of hand) {
+        if (c.kind !== 'standard') continue;
         if (seen.has(c.rank)) return true;
         seen.add(c.rank);
       }

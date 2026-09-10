@@ -27,7 +27,7 @@ function run() {
   const state = createGame(players);
   log('=== Reparto inicial ===');
   state.players.forEach((p) =>
-    log(p.name, p.hand.map((c) => `${c.rank}-${c.suit}`).join(', '))
+    log(p.name, p.hand.map((c) => (c.kind === 'joker' ? 'JOKER' : `${c.rank}-${c.suit}`)).join(', '))
   );
   log('Empieza:', currentPlayer(state).name);
   printState(state);

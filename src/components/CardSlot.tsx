@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { Card } from '../game/types';
 import { cardLabel, isRedSuit, SUIT_SYMBOLS } from '../game/display';
 import { RANK_LABELS } from '../game/askQuestions';
+import { Avatar } from './Avatar';
 
 type CardSlotState =
   | { kind: 'hidden' } // boca abajo, de otro jugador
@@ -37,6 +38,18 @@ export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: nu
   // oscura, palo rojo (corazones/diamantes) o negro (picas/tréboles),
   // igual que una baraja física, para distinguirlas de un vistazo.
   const { card } = state;
+
+  if (card.kind === 'joker') {
+    return (
+      <div
+        style={{ ...base, background: 'var(--snitch-fg)', borderColor: 'var(--snitch-accent)' }}
+        aria-label="Carta Joker"
+      >
+        <Avatar alive size={size * 0.75} />
+      </div>
+    );
+  }
+
   const suitColor = isRedSuit(card.suit) ? 'var(--snitch-accent)' : 'var(--snitch-bg)';
 
   return (

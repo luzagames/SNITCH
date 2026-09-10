@@ -11,15 +11,27 @@ export type Suit = 'spades' | 'hearts' | 'diamonds' | 'clubs';
 // As = 1, J = 11, Q = 12, K = 13 (según lo definido).
 export type Rank = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
 
-export interface Card {
+// El Joker no tiene palo ni número — por eso Card es un tipo discriminado
+// en vez de {suit, rank} siempre. Cualquier código que compare/muestre una
+// carta tiene que manejar los dos casos explícitamente.
+export interface StandardCard {
+  kind: 'standard';
   suit: Suit;
   rank: Rank;
 }
 
-// Identificador único y estable de una carta dentro del mazo de 52.
-// Nos sirve para comparar cartas sin tener que comparar objetos.
+export interface JokerCard {
+  kind: 'joker';
+}
+
+export type Card = StandardCard | JokerCard;
+
+// Identificador único y estable de una carta (para comparar sin comparar
+// objetos). Los dos Jokers del mazo comparten el mismo id a propósito: son
+// indistinguibles entre sí, así que "tener un Joker" es una sola condición,
+// no dos.
 export function cardId(card: Card): string {
-  return `${card.suit}-${card.rank}`;
+  return card.kind === 'joker' ? 'joker' : `${card.suit}-${card.rank}`;
 }
 
 export interface Player {

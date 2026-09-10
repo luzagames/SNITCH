@@ -15,14 +15,16 @@ export function isRedSuit(suit: Suit): boolean {
   return suit === 'hearts' || suit === 'diamonds';
 }
 
-// Ej: "10♥", "A♠", "K♦" — formato compacto, usado en cartas/botones.
+// Ej: "10♥", "A♠", "K♦", "JOKER" — formato compacto, usado en cartas/botones.
 export function cardLabel(card: Card): string {
+  if (card.kind === 'joker') return 'JOKER';
   return `${RANK_LABELS[card.rank]}${SUIT_SYMBOLS[card.suit]}`;
 }
 
-// Ej: "A de Picas", "10 de Corazones" — formato largo, usado en los
-// mensajes de la partida para que se lean como texto natural.
+// Ej: "A de Picas", "10 de Corazones", "el Joker" — formato largo, usado en
+// los mensajes de la partida para que se lean como texto natural.
 export function cardLabelLong(card: Card): string {
+  if (card.kind === 'joker') return 'el Joker';
   return `${RANK_LABELS[card.rank]} de ${SUIT_LABELS[card.suit]}`;
 }
 

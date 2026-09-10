@@ -27,10 +27,10 @@ function assert(cond: boolean, msg: string) {
 
 // --- Escenario 1: KILL exitoso -> el killer se cura 1 vida ---
 {
-  const target: Card = { suit: 'hearts', rank: 7 };
+  const target: Card = { kind: 'standard', suit: 'hearts', rank: 7 };
   const hands = {
-    p1: [{ suit: 'spades', rank: 1 } as Card, { suit: 'clubs', rank: 2 } as Card, { suit: 'diamonds', rank: 3 } as Card],
-    p2: [target, { suit: 'clubs', rank: 9 } as Card, { suit: 'diamonds', rank: 10 } as Card],
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card, { kind: 'standard', suit: 'clubs', rank: 2 } as Card, { kind: 'standard', suit: 'diamonds', rank: 3 } as Card],
+    p2: [target, { kind: 'standard', suit: 'clubs', rank: 9 } as Card, { kind: 'standard', suit: 'diamonds', rank: 10 } as Card],
   };
   const gs = baseGs({
     playersPublic: {
@@ -52,6 +52,7 @@ function assert(cond: boolean, msg: string) {
   assert(
     !!newState.revealedCard &&
       newState.revealedCard.ownerId === 'p2' &&
+      newState.revealedCard.card.kind === 'standard' &&
       newState.revealedCard.card.rank === 7 &&
       newState.revealedCard.card.suit === 'hearts',
     'KILL exitoso: revealedCard queda seteado con la carta y el dueño correctos'
@@ -60,10 +61,10 @@ function assert(cond: boolean, msg: string) {
 
 // --- Escenario 1b: la curación no puede superar el máximo (4) ---
 {
-  const target: Card = { suit: 'hearts', rank: 7 };
+  const target: Card = { kind: 'standard', suit: 'hearts', rank: 7 };
   const hands = {
-    p1: [{ suit: 'spades', rank: 1 } as Card, { suit: 'clubs', rank: 2 } as Card, { suit: 'diamonds', rank: 3 } as Card],
-    p2: [target, { suit: 'clubs', rank: 9 } as Card, { suit: 'diamonds', rank: 10 } as Card],
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card, { kind: 'standard', suit: 'clubs', rank: 2 } as Card, { kind: 'standard', suit: 'diamonds', rank: 3 } as Card],
+    p2: [target, { kind: 'standard', suit: 'clubs', rank: 9 } as Card, { kind: 'standard', suit: 'diamonds', rank: 10 } as Card],
   };
   const gs = baseGs({ pendingAction: { type: 'kill', actorId: 'p1', card: target } }); // p1 ya arranca con 4 (máximo)
   const { newState } = applyPendingAction(gs, hands);
@@ -73,10 +74,10 @@ function assert(cond: boolean, msg: string) {
 
 // --- Escenario 2: KILL fallido (nadie tiene la carta) ---
 {
-  const target: Card = { suit: 'hearts', rank: 13 };
+  const target: Card = { kind: 'standard', suit: 'hearts', rank: 13 };
   const hands = {
-    p1: [{ suit: 'spades', rank: 1 } as Card, { suit: 'clubs', rank: 2 } as Card, { suit: 'diamonds', rank: 3 } as Card],
-    p2: [{ suit: 'clubs', rank: 9 } as Card, { suit: 'diamonds', rank: 10 } as Card, { suit: 'spades', rank: 5 } as Card],
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card, { kind: 'standard', suit: 'clubs', rank: 2 } as Card, { kind: 'standard', suit: 'diamonds', rank: 3 } as Card],
+    p2: [{ kind: 'standard', suit: 'clubs', rank: 9 } as Card, { kind: 'standard', suit: 'diamonds', rank: 10 } as Card, { kind: 'standard', suit: 'spades', rank: 5 } as Card],
   };
   const gs = baseGs({ pendingAction: { type: 'kill', actorId: 'p1', card: target } });
   const { newState, changedHands } = applyPendingAction(gs, hands);
@@ -88,10 +89,10 @@ function assert(cond: boolean, msg: string) {
 
 // --- Escenario 3: bluff sobre la propia carta ---
 {
-  const ownCard: Card = { suit: 'diamonds', rank: 4 };
+  const ownCard: Card = { kind: 'standard', suit: 'diamonds', rank: 4 };
   const hands = {
-    p1: [ownCard, { suit: 'clubs', rank: 2 } as Card, { suit: 'diamonds', rank: 3 } as Card],
-    p2: [{ suit: 'clubs', rank: 9 } as Card, { suit: 'diamonds', rank: 10 } as Card, { suit: 'spades', rank: 5 } as Card],
+    p1: [ownCard, { kind: 'standard', suit: 'clubs', rank: 2 } as Card, { kind: 'standard', suit: 'diamonds', rank: 3 } as Card],
+    p2: [{ kind: 'standard', suit: 'clubs', rank: 9 } as Card, { kind: 'standard', suit: 'diamonds', rank: 10 } as Card, { kind: 'standard', suit: 'spades', rank: 5 } as Card],
   };
   const gs = baseGs({ pendingAction: { type: 'kill', actorId: 'p1', card: ownCard } });
   const { newState, changedHands } = applyPendingAction(gs, hands);
@@ -113,8 +114,8 @@ function assert(cond: boolean, msg: string) {
 // --- Escenario 4: ASK ya NO penaliza, aunque nadie responda ✓ ---
 {
   const hands = {
-    p1: [{ suit: 'spades', rank: 1 } as Card],
-    p2: [{ suit: 'clubs', rank: 2 } as Card],
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card],
+    p2: [{ kind: 'standard', suit: 'clubs', rank: 2 } as Card],
   };
   const gs = baseGs({
     playersPublic: {
@@ -132,8 +133,8 @@ function assert(cond: boolean, msg: string) {
 // --- Escenario 5: PASAR el turno ---
 {
   const hands = {
-    p1: [{ suit: 'spades', rank: 1 } as Card],
-    p2: [{ suit: 'clubs', rank: 2 } as Card],
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card],
+    p2: [{ kind: 'standard', suit: 'clubs', rank: 2 } as Card],
   };
   const gs = baseGs({ pendingAction: { type: 'pass', actorId: 'p1' } });
   const { newState, changedHands } = applyPendingAction(gs, hands);
@@ -147,20 +148,64 @@ function assert(cond: boolean, msg: string) {
 
 // --- Escenario 6: eliminación por vidas dispara victoria (con las nuevas reglas) ---
 {
-  const hands = { p1: [{ suit: 'spades', rank: 1 } as Card], p2: [{ suit: 'clubs', rank: 2 } as Card] };
+  const hands = { p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card], p2: [{ kind: 'standard', suit: 'clubs', rank: 2 } as Card] };
   const gs = baseGs({
     playersPublic: {
       p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
       p2: { name: 'Juan', lives: 1, alive: true, handCount: 1 },
     },
     currentTurnIndex: 1,
-    pendingAction: { type: 'kill', actorId: 'p2', card: { suit: 'hearts', rank: 13 } },
+    pendingAction: { type: 'kill', actorId: 'p2', card: { kind: 'standard', suit: 'hearts', rank: 13 } },
   });
   const { newState } = applyPendingAction(gs, hands);
 
   assert(newState.playersPublic.p2.alive === false, 'Victoria: p2 queda eliminado al llegar a 0 vidas');
   assert(newState.status === 'finished', 'Victoria: el estado pasa a finished');
   assert(newState.winnerId === 'p1', 'Victoria: gana el único jugador vivo');
+}
+
+// --- Escenario 7: Joker — killer tiene uno, PERO otro jugador también
+// tiene el otro Joker. Antes esto se hubiera asumido bluff a ciegas; ahora
+// tiene que encontrar al otro jugador y ser un HIT de verdad. ---
+{
+  const hands = {
+    p1: [{ kind: 'joker' } as Card, { kind: 'standard', suit: 'clubs', rank: 2 } as Card],
+    p2: [{ kind: 'joker' } as Card, { kind: 'standard', suit: 'diamonds', rank: 5 } as Card],
+  };
+  const gs = baseGs({
+    playersPublic: {
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 2 },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 2 },
+    },
+    pendingAction: { type: 'kill', actorId: 'p1', card: { kind: 'joker' } },
+  });
+  const { newState, changedHands } = applyPendingAction(gs, hands);
+
+  assert(newState.playersPublic.p2.handCount === 1, 'Joker duplicado: p2 pierde SU Joker (fue un hit real, no bluff)');
+  assert(newState.playersPublic.p1.lives === 4, 'Joker duplicado: p1 (killer) no pierde vida (además se cura, tope 4)');
+  assert(!!changedHands.p2, 'Joker duplicado: la mano de p2 se marca como cambiada');
+  assert(newState.lastMessage.includes('Lolo descubrió que Juan tenía el JOKER'), 'Joker duplicado: el mensaje revela a Juan, no a Lolo');
+}
+
+// --- Escenario 8: Joker — killer tiene uno, NADIE más tiene ninguno.
+// Acá sí tiene que ser un bluff (mismo comportamiento de siempre). ---
+{
+  const hands = {
+    p1: [{ kind: 'joker' } as Card],
+    p2: [{ kind: 'standard', suit: 'diamonds', rank: 5 } as Card],
+  };
+  const gs = baseGs({
+    playersPublic: {
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1 },
+    },
+    pendingAction: { type: 'kill', actorId: 'p1', card: { kind: 'joker' } },
+  });
+  const { newState, changedHands } = applyPendingAction(gs, hands);
+
+  assert(newState.playersPublic.p1.lives === 3, 'Joker sin duplicado: sigue siendo bluff, pierde 1 vida');
+  assert(newState.playersPublic.p1.handCount === 1, 'Joker sin duplicado: conserva su Joker');
+  assert(Object.keys(changedHands).length === 0, 'Joker sin duplicado: ninguna mano cambia');
 }
 
 console.log('\nTodos los escenarios pasaron correctamente.');

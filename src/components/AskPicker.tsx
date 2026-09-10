@@ -14,6 +14,10 @@ const QUESTION_MENU: { id: AskQuestionId; label: string }[] = [
   { id: 'REPEATED_VALUE_IN_HAND', label: '¿Alguien tiene un valor repetido en su mano?' },
 ];
 
+// Preguntas que no necesitan parámetros extra: se mandan apenas se tocan,
+// sin pasar por el paso de "Confirmar".
+const NO_PARAM_QUESTIONS: AskQuestionId[] = ['REPEATED_VALUE_IN_HAND'];
+
 export function AskPicker({
   onSubmit,
   onCancel,
@@ -33,7 +37,7 @@ export function AskPicker({
   function selectQuestion(id: AskQuestionId) {
     setSelectedId(id);
     setError(null);
-    if (id === 'REPEATED_VALUE_IN_HAND') {
+    if (NO_PARAM_QUESTIONS.includes(id)) {
       onSubmit({ id });
     }
   }
@@ -141,7 +145,7 @@ export function AskPicker({
         </div>
       )}
 
-      {selectedId && selectedId !== 'REPEATED_VALUE_IN_HAND' && (
+      {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
         <p style={{ fontSize: 16, color: 'var(--snitch-muted)' }}>
           Vista previa: "{questionLabel(buildQuestion()!)}"
         </p>
@@ -150,7 +154,7 @@ export function AskPicker({
       {error && <p style={{ color: 'var(--snitch-accent)', fontSize: 16 }}>{error}</p>}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {selectedId && selectedId !== 'REPEATED_VALUE_IN_HAND' && (
+        {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
           <button className="snitch-btn-accent" onClick={handleConfirm} style={{ minHeight: 44 }}>
             Confirmar
           </button>
