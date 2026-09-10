@@ -4,6 +4,7 @@ import { getRoomHostId } from '../firebase/rooms';
 import { HomeScreen } from './HomeScreen';
 import { Lobby } from './Lobby';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen';
+import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
 type Screen = 'home' | 'lobby' | 'game';
@@ -15,11 +16,11 @@ export function SnitchApp() {
   const [hostId, setHostId] = useState<string | null>(null);
 
   if (error) {
-    return <p style={{ color: 'red', padding: 24 }}>Error de conexión: {error}</p>;
+    return <LoadingScreen message={`Error de conexión: ${error}`} isError />;
   }
 
   if (!user) {
-    return <p style={{ color: 'white', background: 'black', padding: 24 }}>Conectando...</p>;
+    return <LoadingScreen message="Conectando..." />;
   }
 
   async function enterRoom(code: string) {

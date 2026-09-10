@@ -5,6 +5,7 @@ import { Table } from './Table';
 import { KillPicker } from './KillPicker';
 import { AskPicker } from './AskPicker';
 import { CardSlot } from './CardSlot';
+import { LoadingScreen } from './LoadingScreen';
 import type { PlayerSeatData } from './PlayerSeat';
 import type { AskQuestion, Card } from '../game/types';
 import '../styles/theme.css';
@@ -57,11 +58,7 @@ export function MultiplayerGameScreen({
   }, [gs?.revealedCard]);
 
   if (!gs) {
-    return (
-      <p style={{ color: 'white', background: 'black', padding: 'clamp(16px, 6vw, 24px)' }}>
-        Cargando partida...
-      </p>
-    );
+    return <LoadingScreen message="Cargando partida..." />;
   }
 
   const myTurn = gs.turnOrder[gs.currentTurnIndex] === uid;
