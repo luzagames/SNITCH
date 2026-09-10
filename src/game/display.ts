@@ -2,12 +2,18 @@ import { RANK_LABELS, SUIT_LABELS } from './askQuestions';
 import { STARTING_LIVES } from './rules';
 import type { Card, Suit } from './types';
 
-const SUIT_SYMBOLS: Record<Suit, string> = {
+export const SUIT_SYMBOLS: Record<Suit, string> = {
   spades: '♠',
   hearts: '♥',
   diamonds: '♦',
   clubs: '♣',
 };
+
+// Como en los naipes de verdad: corazones y diamantes son rojos, picas y
+// tréboles son negros.
+export function isRedSuit(suit: Suit): boolean {
+  return suit === 'hearts' || suit === 'diamonds';
+}
 
 // Ej: "10♥", "A♠", "K♦" — formato compacto, usado en cartas/botones.
 export function cardLabel(card: Card): string {

@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { PlayerSeat } from './PlayerSeat';
 import type { PlayerSeatData } from './PlayerSeat';
+import { CardSlot } from './CardSlot';
+import type { Card } from '../game/types';
 
 const WIDTH = 820;
 const HEIGHT = 650;
@@ -96,7 +98,7 @@ function Seat({ player, x, y, featured }: { player: PlayerSeatData; x: number; y
   );
 }
 
-export function Table({ players }: { players: PlayerSeatData[] }) {
+export function Table({ players, flashCard }: { players: PlayerSeatData[]; flashCard?: Card | null }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -152,6 +154,21 @@ export function Table({ players }: { players: PlayerSeatData[] }) {
         }}
       >
         <CenterLogo />
+        {flashCard && (
+          <div
+            style={{
+              position: 'absolute',
+              top: CENTER_Y,
+              left: CENTER_X,
+              transform: 'translate(-50%, -50%)',
+              zIndex: 10,
+              boxShadow: '0 0 16px rgba(232, 41, 28, 0.7)',
+            }}
+            aria-live="polite"
+          >
+            <CardSlot state={{ kind: 'faceup', card: flashCard }} size={34} />
+          </div>
+        )}
         {seats.map((s) => (
           <Seat key={s.player.id} player={s.player} x={s.x} y={s.y} featured={s.featured} />
         ))}

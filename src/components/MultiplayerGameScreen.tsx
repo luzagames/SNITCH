@@ -163,27 +163,7 @@ export function MultiplayerGameScreen({
         </div>
       )}
 
-      <div style={{ position: 'relative' }}>
-        <Table players={seatData} />
-        {flashCard && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '10%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 10,
-              background: 'var(--snitch-bg)',
-              border: '4px solid var(--snitch-accent)',
-              padding: 12,
-              boxShadow: '0 0 24px rgba(232, 41, 28, 0.6)',
-            }}
-            aria-live="polite"
-          >
-            <CardSlot state={{ kind: 'faceup', card: flashCard }} size={110} />
-          </div>
-        )}
-      </div>
+      <Table players={seatData} flashCard={flashCard} />
 
       {!iAmEliminated && myHand.length > 0 && (
         <div style={{ textAlign: 'center', margin: '4px 0 12px' }}>

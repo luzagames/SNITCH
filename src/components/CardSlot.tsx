@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { Card } from '../game/types';
-import { cardLabel } from '../game/display';
+import { cardLabel, isRedSuit, SUIT_SYMBOLS } from '../game/display';
+import { RANK_LABELS } from '../game/askQuestions';
 
 type CardSlotState =
   | { kind: 'hidden' } // boca abajo, de otro jugador
@@ -32,9 +33,24 @@ export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: nu
     );
   }
 
+  // Boca arriba: estilo de naipe real — fondo blanco, número en tinta
+  // oscura, palo rojo (corazones/diamantes) o negro (picas/tréboles),
+  // igual que una baraja física, para distinguirlas de un vistazo.
+  const { card } = state;
+  const suitColor = isRedSuit(card.suit) ? 'var(--snitch-accent)' : 'var(--snitch-bg)';
+
   return (
-    <div style={base} aria-label={`Carta ${cardLabel(state.card)}`}>
-      {cardLabel(state.card)}
+    <div
+      style={{
+        ...base,
+        background: 'var(--snitch-fg)',
+        borderColor: 'var(--snitch-bg)',
+        gap: 1,
+      }}
+      aria-label={`Carta ${cardLabel(card)}`}
+    >
+      <span style={{ color: 'var(--snitch-bg)' }}>{RANK_LABELS[card.rank]}</span>
+      <span style={{ color: suitColor }}>{SUIT_SYMBOLS[card.suit]}</span>
     </div>
   );
 }
