@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+:root {
+  --snitch-bg: #0a0a0a;
+  --snitch-fg: #f5f5f0;
+  --snitch-accent: #e8291c;
+  --snitch-muted: #4a4a4a;
+  --snitch-outline: rgba(245, 245, 240, 0.5);
+
+  --snitch-font-display: 'Press Start 2P', monospace;
+  --snitch-font-body: 'VT323', monospace;
+}
+
+.snitch-root {
+  background: var(--snitch-bg);
+  color: var(--snitch-fg);
+  font-family: var(--snitch-font-body);
+  min-height: 100vh;
+  image-rendering: pixelated;
+}
+
+.snitch-root * {
+  box-sizing: border-box;
+}
+
+/* Todo con bordes duros: nada de border-radius en la estética SNITCH */
+.snitch-root button {
+  font-family: var(--snitch-font-body);
+  background: transparent;
+  color: var(--snitch-fg);
+  border: 2px solid var(--snitch-fg);
+  border-radius: 0;
+  padding: 8px 20px;
+  font-size: 20px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.snitch-root button:hover {
+  background: var(--snitch-fg);
+  color: var(--snitch-bg);
+}
+
+.snitch-root button.snitch-btn-accent {
+  border-color: var(--snitch-accent);
+  color: var(--snitch-accent);
+}
+
+.snitch-root button.snitch-btn-accent:hover {
+  background: var(--snitch-accent);
+  color: var(--snitch-fg);
+}

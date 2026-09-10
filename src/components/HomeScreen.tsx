@@ -1,0 +1,124 @@
+import { useState } from 'react';
+import { createRoom, joinRoom, type JoinRoomError } from '../firebase/rooms';
+
+const ERROR_MESSAGES: Record<JoinRoomError, string> = {
+  not_found: 'No existe una sala con ese código.',
+  full: 'Esa sala ya está llena (6 jugadores).',
+  already_started: 'Esa partida ya empezó.',
+};
+
+export function HomeScreen({
+  uid,
+  onEnterRoom,
+}: {
+  uid: string;
+  onEnterRoom: (roomCode: string) => void;
+}) {
+  const [mode, setMode] = useState<'home' | 'join'>('home');
+  const [name, setName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleCreate() {
+    if (!name.trim()) {
+      setError('Ingresá tu nombre primero.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const code = await createRoom(uid, name.trim());
+      onEnterRoom(code);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleJoin() {
+    if (!name.trim()) {
+      setError('Ingresá tu nombre primero.');
+      return;
+    }
+    if (!joinCode.trim()) {
+      setError('Ingresá un código de sala.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const result = await joinRoom(joinCode.trim().toUpperCase(), uid, name.trim());
+    setLoading(false);
+    if (result.ok) {
+      onEnterRoom(joinCode.trim().toUpperCase());
+    } else {
+      setError(ERROR_MESSAGES[result.error]);
+    }
+  }
+
+  return (
+    <div className="snitch-root" style={{ padding: 40, textAlign: 'center' }}>
+      <h1 style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 40 }}>SNITCH</h1>
+
+      <div style={{ margin: '24px auto', maxWidth: 320 }}>
+        <input
+          type="text"
+          placeholder="Tu nombre"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          style={{
+            width: '100%',
+            fontSize: 20,
+            fontFamily: 'var(--snitch-font-body)',
+            background: 'transparent',
+            color: 'var(--snitch-fg)',
+            border: '2px solid var(--snitch-fg)',
+            padding: 8,
+            marginBottom: 16,
+          }}
+        />
+      </div>
+
+      {mode === 'home' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 320, margin: '0 auto' }}>
+          <button className="snitch-btn-accent" onClick={handleCreate} disabled={loading}>
+            CREAR SALA
+          </button>
+          <button onClick={() => setMode('join')} disabled={loading}>
+            UNIRSE A SALA
+          </button>
+        </div>
+      )}
+
+      {mode === 'join' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 320, margin: '0 auto' }}>
+          <input
+            type="text"
+            placeholder="CÓDIGO DE SALA"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+            style={{
+              fontSize: 20,
+              fontFamily: 'var(--snitch-font-body)',
+              background: 'transparent',
+              color: 'var(--snitch-fg)',
+              border: '2px solid var(--snitch-fg)',
+              padding: 8,
+              textAlign: 'center',
+              letterSpacing: 4,
+            }}
+          />
+          <button className="snitch-btn-accent" onClick={handleJoin} disabled={loading}>
+            JOIN
+          </button>
+          <button onClick={() => setMode('home')} disabled={loading}>
+            Volver
+          </button>
+        </div>
+      )}
+
+      {error && <p style={{ color: 'var(--snitch-accent)', marginTop: 16 }}>{error}</p>}
+    </div>
+  );
+}
