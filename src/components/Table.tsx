@@ -3,8 +3,8 @@ import type { CSSProperties } from 'react';
 import { PlayerSeat } from './PlayerSeat';
 import type { PlayerSeatData } from './PlayerSeat';
 
-const WIDTH = 760;
-const HEIGHT = 520;
+const WIDTH = 820;
+const HEIGHT = 700;
 const CENTER_X = WIDTH / 2;
 const CENTER_Y = HEIGHT / 2;
 const RADIUS_X = 320;
