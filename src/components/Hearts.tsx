@@ -1,3 +1,5 @@
+import { STARTING_LIVES } from '../game/rules';
+
 interface HeartsProps {
   lives: number;
   maxLives?: number;
@@ -17,7 +19,7 @@ function PixelHeart({ filled }: { filled: boolean }) {
   );
 }
 
-export function Hearts({ lives, maxLives = 5 }: HeartsProps) {
+export function Hearts({ lives, maxLives = STARTING_LIVES }: HeartsProps) {
   return (
     <div style={{ display: 'flex', gap: 3 }} aria-label={`${lives} de ${maxLives} vidas`}>
       {Array.from({ length: maxLives }, (_, i) => (

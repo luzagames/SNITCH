@@ -7,16 +7,16 @@ type CardSlotState =
   | { kind: 'gone' } // descartada por KILL, se muestra tachada
   | { kind: 'faceup'; card: Card }; // tu propia carta
 
-export function CardSlot({ state }: { state: CardSlotState }) {
+export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: number }) {
   const base: CSSProperties = {
-    width: 34,
-    height: 48,
+    width: size,
+    height: size * (48 / 34),
     border: '2px solid var(--snitch-fg)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: 'var(--snitch-font-body)',
-    fontSize: 18,
+    fontSize: Math.round(size * (18 / 34)),
     flexShrink: 0,
   };
 

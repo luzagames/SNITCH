@@ -18,7 +18,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
               <button
                 key={cardLabel(card)}
                 onClick={() => onPick(card)}
-                style={{ padding: '4px 6px', fontSize: 15, minWidth: 38 }}
+                style={{ padding: '7px 8px', fontSize: 16, minWidth: 42, minHeight: 38 }}
               >
                 {cardLabel(card)}
               </button>

@@ -93,6 +93,7 @@ export interface GameState {
   history: (
     | { type: 'kill'; result: KillResult }
     | { type: 'ask'; result: AskResult }
+    | { type: 'pass'; playerId: string }
     | { type: 'reveal'; result: CardRevealEvent }
     | { type: 'eliminated'; playerId: string }
   )[];

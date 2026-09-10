@@ -1,4 +1,4 @@
-import { createGame, resolveKill, resolveAsk } from '../game/rules';
+import { createGame, resolveKill, resolveAsk, resolvePass } from '../game/rules';
 import { cardLabel } from '../game/display';
 import { questionLabel } from '../game/askQuestions';
 import type { AskQuestion, Card, GameState } from '../game/types';
@@ -12,7 +12,8 @@ export interface PlayerPublicInfo {
 
 export type PendingAction =
   | { type: 'kill'; actorId: string; card: Card }
-  | { type: 'ask'; actorId: string; question: AskQuestion };
+  | { type: 'ask'; actorId: string; question: AskQuestion }
+  | { type: 'pass'; actorId: string };
 
 export interface SyncedGameState {
   status: 'playing' | 'finished';
@@ -81,7 +82,8 @@ export function applyPendingAction(
     const result = resolveKill(engineState, action.actorId, action.card);
     const actorName = gs.playersPublic[action.actorId].name;
     if (result.hit) {
-      message = `¡Impacto! ${gs.playersPublic[result.hitPlayerId!].name} tenía ${cardLabel(action.card)}.`;
+      const victimName = gs.playersPublic[result.hitPlayerId!].name;
+      message = `¡Impacto! ${actorName} descubrió que ${victimName} tenía el ${cardLabel(action.card)}.`;
     } else {
       // OJO: este texto tiene que ser IDÉNTICO tanto si fue un fallo real
       // como si fue un bluff sobre la propia carta (result.selfBluff).
@@ -92,13 +94,17 @@ export function applyPendingAction(
       // poder distinguir este caso de un fallo genuino.
       message = `Nadie tenía ${cardLabel(action.card)}. ${actorName} perdió 1 corazón.`;
     }
-  } else {
+  } else if (action.type === 'ask') {
     const result = resolveAsk(engineState, action.actorId, action.question);
     const actorName = gs.playersPublic[action.actorId].name;
     lastAnswers = result.answers;
-    message = result.anyMatch
-      ? `${actorName} preguntó: "${questionLabel(action.question)}"`
-      : `${actorName} preguntó: "${questionLabel(action.question)}" — nadie respondió ✓, perdió 1 corazón.`;
+    // ASK ya no tiene penalización, así que el mensaje es siempre el mismo
+    // independientemente de si alguien respondió ✓ o no.
+    message = `${actorName} preguntó: "${questionLabel(action.question)}"`;
+  } else {
+    resolvePass(engineState, action.actorId);
+    const actorName = gs.playersPublic[action.actorId].name;
+    message = `${actorName} pasó su turno.`;
   }
 
   const playersPublic: Record<string, PlayerPublicInfo> = {};

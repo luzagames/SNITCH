@@ -11,7 +11,7 @@ import type {
   Player,
 } from './types';
 
-const STARTING_LIVES = 5;
+export const STARTING_LIVES = 4;
 const CARDS_PER_PLAYER = 3;
 
 // ------------------------------------------------------------------
@@ -162,6 +162,10 @@ export function resolveKill(state: GameState, killerId: string, targetCard: Card
 
     checkAndEliminate(state, hitPlayer);
 
+    // Nueva regla: acertar un KILL devuelve 1 vida al killer (tope: no
+    // puede superar el máximo inicial).
+    killer.lives = Math.min(killer.lives + 1, STARTING_LIVES);
+
     result = {
       killerId,
       targetCard,
@@ -238,14 +242,9 @@ export function resolveAsk(state: GameState, askerId: string, question: AskQuest
 
   const anyMatch = answers.some((a) => a.matches);
 
-  let heartLost = false;
-  if (!anyMatch) {
-    asker.lives -= 1;
-    heartLost = true;
-    checkAndEliminate(state, asker);
-  }
-
-  const result: AskResult = { question, askerId, answers, anyMatch, heartLost };
+  // Regla actualizada: ASK ya no penaliza con pérdida de vida. Solo KILL
+  // fallido cuesta un corazón.
+  const result: AskResult = { question, askerId, answers, anyMatch, heartLost: false };
   state.history.push({ type: 'ask', result });
 
   if (!checkVictory(state)) {
@@ -253,6 +252,19 @@ export function resolveAsk(state: GameState, askerId: string, question: AskQuest
   }
 
   return result;
+}
+
+// ------------------------------------------------------------------
+// ACCIÓN: PASAR
+// ------------------------------------------------------------------
+// No cuesta nada ni revela nada: simplemente cede el turno.
+
+export function resolvePass(state: GameState, playerId: string): void {
+  if (currentPlayer(state).id !== playerId) {
+    throw new Error('No es el turno de este jugador');
+  }
+  state.history.push({ type: 'pass', playerId });
+  advanceTurn(state);
 }
 
 // ------------------------------------------------------------------

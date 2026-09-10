@@ -1,4 +1,5 @@
-import { RANK_LABELS } from './askQuestions';
+import { RANK_LABELS, SUIT_LABELS } from './askQuestions';
+import { STARTING_LIVES } from './rules';
 import type { Card, Suit } from './types';
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -8,11 +9,17 @@ const SUIT_SYMBOLS: Record<Suit, string> = {
   clubs: '♣',
 };
 
-// Ej: "10♥", "A♠", "K♦"
+// Ej: "10♥", "A♠", "K♦" — formato compacto, usado en cartas/botones.
 export function cardLabel(card: Card): string {
   return `${RANK_LABELS[card.rank]}${SUIT_SYMBOLS[card.suit]}`;
 }
 
+// Ej: "A de Picas", "10 de Corazones" — formato largo, usado en los
+// mensajes de la partida para que se lean como texto natural.
+export function cardLabelLong(card: Card): string {
+  return `${RANK_LABELS[card.rank]} de ${SUIT_LABELS[card.suit]}`;
+}
+
 export function heartsLabel(lives: number): string {
-  return '❤'.repeat(Math.max(lives, 0)) + '·'.repeat(Math.max(5 - lives, 0));
+  return '❤'.repeat(Math.max(lives, 0)) + '·'.repeat(Math.max(STARTING_LIVES - lives, 0));
 }

@@ -4,6 +4,7 @@ import type { SyncedGameState } from '../firebase/gameSync';
 import { Table } from './Table';
 import { KillPicker } from './KillPicker';
 import { AskPicker } from './AskPicker';
+import { CardSlot } from './CardSlot';
 import type { PlayerSeatData } from './PlayerSeat';
 import type { AskQuestion, Card } from '../game/types';
 import '../styles/theme.css';
@@ -118,6 +119,10 @@ export function MultiplayerGameScreen({
     setPanel('closed');
   }
 
+  function handlePass() {
+    submitAction(roomCode, { type: 'pass', actorId: uid });
+  }
+
   return (
     <div className="snitch-root" style={{ padding: 'clamp(12px, 4vw, 24px)' }}>
       {iAmEliminated && spectating && (
@@ -145,6 +150,17 @@ export function MultiplayerGameScreen({
 
       <Table players={seatData} />
 
+      {!iAmEliminated && myHand.length > 0 && (
+        <div style={{ textAlign: 'center', margin: '16px 0' }}>
+          <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginBottom: 6 }}>TU MANO</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {myHand.map((card, i) => (
+              <CardSlot key={i} state={{ kind: 'faceup', card }} size={56} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <p style={{ textAlign: 'center', fontSize: 'clamp(15px, 4vw, 18px)', minHeight: 24, padding: '0 8px' }}>
         {gs.lastMessage}
       </p>
@@ -170,6 +186,7 @@ export function MultiplayerGameScreen({
               <button className="snitch-btn-accent" onClick={() => setPanel('ask')}>
                 PREGUNTAR
               </button>
+              <button onClick={handlePass}>PASAR</button>
             </>
           ) : (
             <p style={{ fontSize: 18, color: 'var(--snitch-muted)', textAlign: 'center' }}>Turno de {actorName}...</p>
