@@ -4,15 +4,37 @@ import { PlayerSeat } from './PlayerSeat';
 import type { PlayerSeatData } from './PlayerSeat';
 
 const WIDTH = 820;
-const HEIGHT = 700;
+const HEIGHT = 760;
 const CENTER_X = WIDTH / 2;
-const CENTER_Y = HEIGHT / 2;
+const CENTER_Y = HEIGHT / 2 - 30;
 const RADIUS_X = 320;
 const RADIUS_Y = 210;
 
-// Calcula la posición de cada jugador distribuido en una elipse, empezando
-// arriba y en sentido horario (coincide con "el turno avanza hacia la derecha").
-function seatPosition(index: number, total: number) {
+// Posición de "vos": fija, siempre abajo al centro, sin importar el orden
+// real de turno. Coincide con el asiento agrandado (featured). Se calcula
+// dejando lugar para el logo (arriba) y el propio tamaño del asiento grande.
+const YOU_Y = CENTER_Y + 197;
+
+// Los demás jugadores se distribuyen en un arco arriba de la mesa (no toda
+// la elipse, solo la mitad superior), centrado en la posición "12 en punto"
+// y abarcando ±75° desde ahí.
+const ARC_HALF_ANGLE = (75 * Math.PI) / 180;
+const ARC_CENTER_ANGLE = -Math.PI / 2;
+
+function otherSeatPosition(index: number, total: number) {
+  if (total === 1) {
+    return { x: CENTER_X + RADIUS_X * Math.cos(ARC_CENTER_ANGLE), y: CENTER_Y + RADIUS_Y * Math.sin(ARC_CENTER_ANGLE) };
+  }
+  const angle = ARC_CENTER_ANGLE - ARC_HALF_ANGLE + (2 * ARC_HALF_ANGLE * index) / (total - 1);
+  const x = CENTER_X + RADIUS_X * Math.cos(angle);
+  const y = CENTER_Y + RADIUS_Y * Math.sin(angle);
+  return { x, y };
+}
+
+// Fallback: la vieja distribución en elipse completa, para casos donde no
+// se identifica a "vos" entre los jugadores (por ejemplo, un demo/test que
+// no marca isYou en nadie).
+function fullEllipsePosition(index: number, total: number) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2;
   const x = CENTER_X + RADIUS_X * Math.cos(angle);
   const y = CENTER_Y + RADIUS_Y * Math.sin(angle);
@@ -58,6 +80,21 @@ function CenterLogo() {
   );
 }
 
+function Seat({ player, x, y, featured }: { player: PlayerSeatData; x: number; y: number; featured: boolean }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: y,
+        left: x,
+        transform: 'translate(-50%, -50%)',
+      }}
+    >
+      <PlayerSeat player={player} featured={featured} />
+    </div>
+  );
+}
+
 export function Table({ players }: { players: PlayerSeatData[] }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -72,6 +109,26 @@ export function Table({ players }: { players: PlayerSeatData[] }) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  const youIndex = players.findIndex((p) => p.isYou);
+
+  let seats: { player: PlayerSeatData; x: number; y: number; featured: boolean }[];
+
+  if (youIndex === -1) {
+    // Fallback sin POV: elipse completa como antes.
+    seats = players.map((p, i) => ({ player: p, ...fullEllipsePosition(i, players.length), featured: false }));
+  } else {
+    const you = players[youIndex];
+    // Rotamos para que el orden empiece en el siguiente jugador después de
+    // vos y dé toda la vuelta — así el arco de arriba respeta el sentido
+    // real de turno visto desde tu lugar.
+    const others = [...players.slice(youIndex + 1), ...players.slice(0, youIndex)];
+
+    seats = [
+      { player: you, x: CENTER_X, y: YOU_Y, featured: true },
+      ...others.map((p, i) => ({ player: p, ...otherSeatPosition(i, others.length), featured: false })),
+    ];
+  }
 
   return (
     <div
@@ -94,22 +151,9 @@ export function Table({ players }: { players: PlayerSeatData[] }) {
         }}
       >
         <CenterLogo />
-        {players.map((p, i) => {
-          const { x, y } = seatPosition(i, players.length);
-          return (
-            <div
-              key={p.id}
-              style={{
-                position: 'absolute',
-                top: y,
-                left: x,
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <PlayerSeat player={p} />
-            </div>
-          );
-        })}
+        {seats.map((s) => (
+          <Seat key={s.player.id} player={s.player} x={s.x} y={s.y} featured={s.featured} />
+        ))}
       </div>
     </div>
   );

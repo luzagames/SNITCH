@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee } from '../firebase/gameSync';
 import type { SyncedGameState } from '../firebase/gameSync';
 import { Table } from './Table';
@@ -10,6 +10,7 @@ import type { AskQuestion, Card } from '../game/types';
 import '../styles/theme.css';
 
 type PanelState = 'closed' | 'kill' | 'ask';
+const REVEAL_DURATION_MS = 1000;
 
 export function MultiplayerGameScreen({
   roomCode,
@@ -26,6 +27,8 @@ export function MultiplayerGameScreen({
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [panel, setPanel] = useState<PanelState>('closed');
   const [spectating, setSpectating] = useState(false);
+  const [flashCard, setFlashCard] = useState<Card | null>(null);
+  const lastRevealSeen = useRef<number | null>(null);
 
   useEffect(() => {
     const unsubGs = subscribeToGameState(roomCode, setGs);
@@ -37,6 +40,21 @@ export function MultiplayerGameScreen({
       unsubReferee?.();
     };
   }, [roomCode, uid, isHost]);
+
+  // Cuando aparece un revealedCard NUEVO (distinto al último que ya vimos),
+  // lo mostramos como un flash arriba de la mesa durante 1 segundo. Se
+  // controla enteramente en el cliente: no depende de que Firestore lo
+  // borre, cada navegador decide solo cuándo esconderlo.
+  useEffect(() => {
+    if (!gs?.revealedCard) return;
+    if (gs.revealedCard.revealedAt === lastRevealSeen.current) return;
+
+    lastRevealSeen.current = gs.revealedCard.revealedAt;
+    setFlashCard(gs.revealedCard.card);
+
+    const timer = setTimeout(() => setFlashCard(null), REVEAL_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, [gs?.revealedCard]);
 
   if (!gs) {
     return (
@@ -148,7 +166,27 @@ export function MultiplayerGameScreen({
         </div>
       )}
 
-      <Table players={seatData} />
+      <div style={{ position: 'relative' }}>
+        <Table players={seatData} />
+        {flashCard && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '10%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              background: 'var(--snitch-bg)',
+              border: '4px solid var(--snitch-accent)',
+              padding: 12,
+              boxShadow: '0 0 24px rgba(232, 41, 28, 0.6)',
+            }}
+            aria-live="polite"
+          >
+            <CardSlot state={{ kind: 'faceup', card: flashCard }} size={110} />
+          </div>
+        )}
+      </div>
 
       {!iAmEliminated && myHand.length > 0 && (
         <div style={{ textAlign: 'center', margin: '16px 0' }}>

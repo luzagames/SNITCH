@@ -13,7 +13,11 @@ export interface PlayerSeatData {
   isCurrentTurn: boolean;
 }
 
-export function PlayerSeat({ player }: { player: PlayerSeatData }) {
+export function PlayerSeat({ player, featured = false }: { player: PlayerSeatData; featured?: boolean }) {
+  const avatarSize = featured ? 100 : 72;
+  const cardSize = featured ? 42 : 34;
+  const nameFontSize = featured ? 24 : 20;
+
   return (
     <div
       style={{
@@ -32,16 +36,16 @@ export function PlayerSeat({ player }: { player: PlayerSeatData }) {
           lineHeight: 0,
         }}
       >
-        <Avatar alive={player.alive} />
+        <Avatar alive={player.alive} size={avatarSize} />
       </div>
 
       <div style={{ display: 'flex', gap: 4 }}>
         {player.cardStates.map((state, i) => (
-          <CardSlot key={i} state={state} />
+          <CardSlot key={i} state={state} size={cardSize} />
         ))}
       </div>
 
-      <span style={{ fontSize: 20 }}>
+      <span style={{ fontSize: nameFontSize }}>
         {player.name}
         {player.isYou ? ' (vos)' : ''}
       </span>

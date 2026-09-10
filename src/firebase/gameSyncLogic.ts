@@ -15,6 +15,12 @@ export type PendingAction =
   | { type: 'ask'; actorId: string; question: AskQuestion }
   | { type: 'pass'; actorId: string };
 
+export interface RevealedCard {
+  card: Card;
+  ownerId: string; // quién tenía la carta
+  revealedAt: number; // timestamp, para que el cliente detecte "esto es nuevo"
+}
+
 export interface SyncedGameState {
   status: 'playing' | 'finished';
   turnOrder: string[];
@@ -24,6 +30,7 @@ export interface SyncedGameState {
   lastMessage: string;
   lastAnswers: { playerId: string; matches: boolean }[] | null;
   pendingAction: PendingAction | null;
+  revealedCard: RevealedCard | null;
 }
 
 // Arma el SyncedGameState inicial (llamado al arrancar la partida).
@@ -47,6 +54,7 @@ export function buildInitialSyncedState(players: { id: string; name: string }[])
       winnerId: null,
       lastMessage: '¡Arrancó la partida!',
       lastAnswers: null,
+      revealedCard: null,
     },
     hands,
   };
@@ -77,6 +85,7 @@ export function applyPendingAction(
   const action = gs.pendingAction!;
   let message = '';
   let lastAnswers: SyncedGameState['lastAnswers'] = null;
+  let revealedCard: SyncedGameState['revealedCard'] = null;
 
   if (action.type === 'kill') {
     const result = resolveKill(engineState, action.actorId, action.card);
@@ -84,6 +93,7 @@ export function applyPendingAction(
     if (result.hit) {
       const victimName = gs.playersPublic[result.hitPlayerId!].name;
       message = `¡Impacto! ${actorName} descubrió que ${victimName} tenía el ${cardLabel(action.card)}.`;
+      revealedCard = { card: action.card, ownerId: result.hitPlayerId!, revealedAt: Date.now() };
     } else {
       // OJO: este texto tiene que ser IDÉNTICO tanto si fue un fallo real
       // como si fue un bluff sobre la propia carta (result.selfBluff).
@@ -126,6 +136,7 @@ export function applyPendingAction(
       winnerId: engineState.winnerId ?? null,
       lastMessage: message,
       lastAnswers,
+      revealedCard,
     },
     changedHands,
   };

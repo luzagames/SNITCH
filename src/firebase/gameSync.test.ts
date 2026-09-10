@@ -15,6 +15,7 @@ function baseGs(overrides: Partial<SyncedGameState> = {}): SyncedGameState {
     lastMessage: '',
     lastAnswers: null,
     pendingAction: null,
+    revealedCard: null,
     ...overrides,
   };
 }
@@ -48,6 +49,13 @@ function assert(cond: boolean, msg: string) {
     newState.lastMessage === '¡Impacto! Lolo descubrió que Juan tenía el 7♥.',
     'KILL exitoso: el mensaje dice quién le acertó a quién'
   );
+  assert(
+    !!newState.revealedCard &&
+      newState.revealedCard.ownerId === 'p2' &&
+      newState.revealedCard.card.rank === 7 &&
+      newState.revealedCard.card.suit === 'hearts',
+    'KILL exitoso: revealedCard queda seteado con la carta y el dueño correctos'
+  );
 }
 
 // --- Escenario 1b: la curación no puede superar el máximo (4) ---
@@ -75,6 +83,7 @@ function assert(cond: boolean, msg: string) {
 
   assert(newState.playersPublic.p1.lives === 3, 'KILL fallido: el killer pierde 1 vida (4 -> 3)');
   assert(Object.keys(changedHands).length === 0, 'KILL fallido: ninguna mano cambia');
+  assert(newState.revealedCard === null, 'KILL fallido: revealedCard queda en null');
 }
 
 // --- Escenario 3: bluff sobre la propia carta ---
@@ -94,6 +103,10 @@ function assert(cond: boolean, msg: string) {
   assert(
     newState.lastMessage === 'Nadie tenía 4♦. Lolo perdió 1 corazón.',
     'Bluff: el mensaje es IDÉNTICO al de un fallo real (no distinguible)'
+  );
+  assert(
+    newState.revealedCard === null,
+    'Bluff: revealedCard queda en null (si se seteara, delataría la carta igual que el mensaje)'
   );
 }
 
