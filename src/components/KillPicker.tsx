@@ -8,7 +8,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
   const deck = fullCardSet();
 
   return (
-    <div style={{ border: '2px solid var(--snitch-fg)', padding: 16, maxWidth: 620, margin: '0 auto' }}>
+    <div style={{ border: '2px solid var(--snitch-fg)', padding: 'clamp(8px, 3vw, 16px)', width: 'min(620px, 95vw)', margin: '0 auto', boxSizing: 'border-box' }}>
       <p style={{ fontSize: 20, marginTop: 0 }}>Elegí una carta para KILL:</p>
       {SUIT_ORDER.map((suit) => (
         <div key={suit} style={{ display: 'flex', gap: 4, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -18,7 +18,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
               <button
                 key={cardLabel(card)}
                 onClick={() => onPick(card)}
-                style={{ padding: '4px 8px', fontSize: 16, minWidth: 44 }}
+                style={{ padding: '4px 6px', fontSize: 15, minWidth: 38 }}
               >
                 {cardLabel(card)}
               </button>

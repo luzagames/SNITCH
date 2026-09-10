@@ -64,7 +64,7 @@ export function AskPicker({
   }
 
   return (
-    <div style={{ border: '2px solid var(--snitch-fg)', padding: 16, maxWidth: 480, margin: '0 auto' }}>
+    <div style={{ border: '2px solid var(--snitch-fg)', padding: 'clamp(8px, 3vw, 16px)', width: 'min(480px, 95vw)', margin: '0 auto', boxSizing: 'border-box' }}>
       <p style={{ fontSize: 20, marginTop: 0 }}>Elegí una pregunta:</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
         {QUESTION_MENU.map((q) => (
@@ -97,7 +97,7 @@ export function AskPicker({
       )}
 
       {selectedId === 'BETWEEN' && (
-        <div style={{ marginBottom: 12, display: 'flex', gap: 12 }}>
+        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           <label style={{ fontSize: 18 }}>
             Mínimo:{' '}
             <select value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>

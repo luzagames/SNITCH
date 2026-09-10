@@ -58,8 +58,8 @@ export function HomeScreen({
   }
 
   return (
-    <div className="snitch-root" style={{ padding: 40, textAlign: 'center' }}>
-      <h1 style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 40 }}>SNITCH</h1>
+    <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+      <h1 style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(28px, 8vw, 40px)' }}>SNITCH</h1>
 
       <div style={{ margin: '24px auto', maxWidth: 320 }}>
         <input
@@ -110,7 +110,7 @@ export function HomeScreen({
             }}
           />
           <button className="snitch-btn-accent" onClick={handleJoin} disabled={loading}>
-            JOIN
+            UNIRSE
           </button>
           <button onClick={() => setMode('home')} disabled={loading}>
             Volver

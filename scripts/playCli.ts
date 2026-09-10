@@ -1,8 +1,8 @@
-import { createGame, currentPlayer, resolveAsk, resolveKill, leaveGame } from './rules';
-import { fullCardSet } from './deck';
-import { questionLabel } from './askQuestions';
-import { cardLabel, heartsLabel } from './display';
-import { AskQuestion, GameState, Rank, Suit } from './types';
+import { createGame, currentPlayer, resolveAsk, resolveKill } from '../src/game/rules';
+import { fullCardSet } from '../src/game/deck';
+import { questionLabel } from '../src/game/askQuestions';
+import { cardLabel, heartsLabel } from '../src/game/display';
+import type { AskQuestion, GameState, Rank, Suit } from '../src/game/types';
 
 // Fuente de input abstraída: en producción usamos readline-sync (necesita
 // una terminal real). Para poder testear la lógica de menús/parseo sin

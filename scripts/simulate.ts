@@ -1,7 +1,7 @@
-import { createGame, currentPlayer, resolveAsk, resolveKill, leaveGame } from './rules';
-import { fullCardSet } from './deck';
-import { questionLabel, validateQuestion } from './askQuestions';
-import { AskQuestion, GameState } from './types';
+import { createGame, currentPlayer, resolveAsk, resolveKill, leaveGame } from '../src/game/rules';
+import { fullCardSet } from '../src/game/deck';
+import { questionLabel, validateQuestion } from '../src/game/askQuestions';
+import type { AskQuestion, GameState } from '../src/game/types';
 
 function log(...args: unknown[]) {
   // eslint-disable-next-line no-console
@@ -33,7 +33,6 @@ function run() {
   printState(state);
 
   log('\n=== Prueba de las 6 preguntas de ASK ===');
-  const askerId = currentPlayer(state).id;
   const testQuestions: AskQuestion[] = [
     { id: 'GREATER_THAN', value: 10 },
     { id: 'LOWER_THAN', value: 5 },

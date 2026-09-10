@@ -14,14 +14,17 @@ export function MultiplayerGameScreen({
   roomCode,
   uid,
   isHost,
+  onExit,
 }: {
   roomCode: string;
   uid: string;
   isHost: boolean;
+  onExit: () => void;
 }) {
   const [gs, setGs] = useState<SyncedGameState | null>(null);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [panel, setPanel] = useState<PanelState>('closed');
+  const [spectating, setSpectating] = useState(false);
 
   useEffect(() => {
     const unsubGs = subscribeToGameState(roomCode, setGs);
@@ -35,20 +38,56 @@ export function MultiplayerGameScreen({
   }, [roomCode, uid, isHost]);
 
   if (!gs) {
-    return <p style={{ color: 'white', background: 'black', padding: 24 }}>Cargando partida...</p>;
+    return (
+      <p style={{ color: 'white', background: 'black', padding: 'clamp(16px, 6vw, 24px)' }}>
+        Cargando partida...
+      </p>
+    );
   }
 
   const myTurn = gs.turnOrder[gs.currentTurnIndex] === uid;
   const waitingOnReferee = gs.pendingAction !== null;
   const actorName = gs.playersPublic[gs.turnOrder[gs.currentTurnIndex]]?.name ?? '';
+  const iAmEliminated = gs.playersPublic[uid] ? !gs.playersPublic[uid].alive : false;
 
   if (gs.status === 'finished') {
     const winnerName = gs.winnerId ? gs.playersPublic[gs.winnerId]?.name : '???';
     return (
-      <div className="snitch-root" style={{ padding: 40, textAlign: 'center' }}>
-        <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 28 }}>WINNER</p>
-        <p style={{ fontSize: 32, margin: '16px 0' }}>{winnerName}</p>
-        <p style={{ fontSize: 20, color: 'var(--snitch-muted)' }}>LAST PLAYER STANDING</p>
+      <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>GANADOR</p>
+        <p style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>{winnerName}</p>
+        <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>ÚLTIMO EN PIE</p>
+        <button className="snitch-btn-accent" onClick={onExit} style={{ marginTop: 24 }}>
+          SALIR
+        </button>
+      </div>
+    );
+  }
+
+  // Jugador eliminado que todavía no eligió qué hacer: mostrar la elección
+  // antes de dejarlo ver el resto de la mesa como espectador.
+  if (iAmEliminated && !spectating) {
+    return (
+      <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        <p style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>Fuiste eliminado.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 280, margin: '24px auto' }}>
+          <button className="snitch-btn-accent" onClick={() => setSpectating(true)}>
+            OBSERVAR
+          </button>
+          <button
+            onClick={onExit}
+            disabled={isHost}
+            title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
+          >
+            SALIR DE LA PARTIDA
+          </button>
+          {isHost && (
+            <p style={{ fontSize: 14, color: 'var(--snitch-muted)' }}>
+              Como sos el host, tenés que quedarte (aunque sea mirando) hasta que termine la partida — tu
+              navegador es el que sigue arbitrando las jugadas de los demás.
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -80,10 +119,35 @@ export function MultiplayerGameScreen({
   }
 
   return (
-    <div className="snitch-root" style={{ padding: 24 }}>
+    <div className="snitch-root" style={{ padding: 'clamp(12px, 4vw, 24px)' }}>
+      {iAmEliminated && spectating && (
+        <div
+          style={{
+            textAlign: 'center',
+            marginBottom: 16,
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 16,
+          }}
+        >
+          <span style={{ color: 'var(--snitch-muted)', fontSize: 16 }}>Modo espectador</span>
+          <button
+            onClick={onExit}
+            disabled={isHost}
+            title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
+          >
+            SALIR DE LA PARTIDA
+          </button>
+        </div>
+      )}
+
       <Table players={seatData} />
 
-      <p style={{ textAlign: 'center', fontSize: 18, minHeight: 24 }}>{gs.lastMessage}</p>
+      <p style={{ textAlign: 'center', fontSize: 'clamp(15px, 4vw, 18px)', minHeight: 24, padding: '0 8px' }}>
+        {gs.lastMessage}
+      </p>
 
       {gs.lastAnswers && (
         <p style={{ textAlign: 'center', fontSize: 16, color: 'var(--snitch-muted)' }}>
@@ -96,19 +160,19 @@ export function MultiplayerGameScreen({
       )}
 
       {!waitingOnReferee && panel === 'closed' && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 16 }}>
           {myTurn ? (
             <>
-              <p style={{ fontSize: 20, alignSelf: 'center', margin: 0 }}>Tu turno:</p>
+              <p style={{ fontSize: 20, margin: 0 }}>Tu turno:</p>
               <button className="snitch-btn-accent" onClick={() => setPanel('kill')}>
                 KILL
               </button>
               <button className="snitch-btn-accent" onClick={() => setPanel('ask')}>
-                ASK
+                PREGUNTAR
               </button>
             </>
           ) : (
-            <p style={{ fontSize: 18, color: 'var(--snitch-muted)' }}>Turno de {actorName}...</p>
+            <p style={{ fontSize: 18, color: 'var(--snitch-muted)', textAlign: 'center' }}>Turno de {actorName}...</p>
           )}
         </div>
       )}

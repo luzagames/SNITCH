@@ -30,11 +30,12 @@ export function GameScreen({ playerCount = 4 }: { playerCount?: number }) {
 
   function handleKill(card: Card) {
     const result = resolveKill(game, actor.id, card);
-    if (result.selfBluff) {
-      refresh(`${actor.name} bluffeó con ${cardLabel(card)}. Perdió 1 corazón, pero la conserva.`);
-    } else if (result.hit) {
+    if (result.hit) {
       refresh(`¡Impacto! ${result.hitPlayerId} tenía ${cardLabel(card)}.`);
     } else {
+      // Mismo texto tanto para un fallo real como para un bluff sobre la
+      // propia carta (result.selfBluff) — si lo distinguiéramos acá,
+      // estaríamos revelando qué carta tiene el actor.
       refresh(`Nadie tenía ${cardLabel(card)}. ${actor.name} perdió 1 corazón.`);
     }
   }

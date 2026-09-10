@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { PlayerSeat } from './PlayerSeat';
 import type { PlayerSeatData } from './PlayerSeat';
@@ -58,32 +59,58 @@ function CenterLogo() {
 }
 
 export function Table({ players }: { players: PlayerSeatData[] }) {
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const availableWidth = entries[0].contentRect.width;
+      setScale(Math.min(1, availableWidth / WIDTH));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={stageRef}
       style={{
-        position: 'relative',
-        width: WIDTH,
-        height: HEIGHT,
+        width: '100%',
+        maxWidth: WIDTH,
         margin: '0 auto',
+        height: HEIGHT * scale,
+        overflow: 'hidden',
       }}
     >
-      <CenterLogo />
-      {players.map((p, i) => {
-        const { x, y } = seatPosition(i, players.length);
-        return (
-          <div
-            key={p.id}
-            style={{
-              position: 'absolute',
-              top: y,
-              left: x,
-              transform: 'translate(-50%, -50%)',
-            }}
-          >
-            <PlayerSeat player={p} />
-          </div>
-        );
-      })}
+      <div
+        style={{
+          position: 'relative',
+          width: WIDTH,
+          height: HEIGHT,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+        }}
+      >
+        <CenterLogo />
+        {players.map((p, i) => {
+          const { x, y } = seatPosition(i, players.length);
+          return (
+            <div
+              key={p.id}
+              style={{
+                position: 'absolute',
+                top: y,
+                left: x,
+                transform: 'translate(-50%, -50%)',
+              }}
+            >
+              <PlayerSeat player={p} />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

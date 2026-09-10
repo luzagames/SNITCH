@@ -80,11 +80,16 @@ export function applyPendingAction(
   if (action.type === 'kill') {
     const result = resolveKill(engineState, action.actorId, action.card);
     const actorName = gs.playersPublic[action.actorId].name;
-    if (result.selfBluff) {
-      message = `${actorName} bluffeó con ${cardLabel(action.card)}. Perdió 1 corazón, pero la conserva.`;
-    } else if (result.hit) {
+    if (result.hit) {
       message = `¡Impacto! ${gs.playersPublic[result.hitPlayerId!].name} tenía ${cardLabel(action.card)}.`;
     } else {
+      // OJO: este texto tiene que ser IDÉNTICO tanto si fue un fallo real
+      // como si fue un bluff sobre la propia carta (result.selfBluff).
+      // Si acá dijéramos "bluffeó con la carta X", estaríamos revelando
+      // públicamente que el actor tiene esa carta — literalmente lo
+      // opuesto de lo que un bluff debería lograr. El actor ya sabe si
+      // conservó su carta con solo mirar su propia mano; nadie más debe
+      // poder distinguir este caso de un fallo genuino.
       message = `Nadie tenía ${cardLabel(action.card)}. ${actorName} perdió 1 corazón.`;
     }
   } else {

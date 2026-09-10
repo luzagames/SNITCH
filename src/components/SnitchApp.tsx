@@ -38,7 +38,18 @@ export function SnitchApp() {
   }
 
   if (screen === 'game' && roomCode) {
-    return <MultiplayerGameScreen roomCode={roomCode} uid={user.uid} isHost={user.uid === hostId} />;
+    return (
+      <MultiplayerGameScreen
+        roomCode={roomCode}
+        uid={user.uid}
+        isHost={user.uid === hostId}
+        onExit={() => {
+          setRoomCode(null);
+          setHostId(null);
+          setScreen('home');
+        }}
+      />
+    );
   }
 
   return null;

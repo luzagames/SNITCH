@@ -18,10 +18,10 @@ export const RANK_LABELS: Record<Rank, string> = {
 };
 
 export const SUIT_LABELS: Record<Suit, string> = {
-  spades: 'Spades',
-  hearts: 'Hearts',
-  diamonds: 'Diamonds',
-  clubs: 'Clubs',
+  spades: 'Picas',
+  hearts: 'Corazones',
+  diamonds: 'Diamantes',
+  clubs: 'Tréboles',
 };
 
 // Lanza un error descriptivo si la pregunta está mal formada. Se llama
@@ -59,22 +59,22 @@ export function validateQuestion(q: AskQuestion): void {
 }
 
 // Texto legible para historial y para el botón de la UI.
-// Ej: "Does anyone have a card greater than 10?"
+// Ej: "¿Alguien tiene una carta mayor a 10?"
 export function questionLabel(q: AskQuestion): string {
   switch (q.id) {
     case 'GREATER_THAN':
-      return `Does anyone have a card greater than ${RANK_LABELS[q.value as Rank]}?`;
+      return `¿Alguien tiene una carta mayor a ${RANK_LABELS[q.value as Rank]}?`;
     case 'LOWER_THAN':
-      return `Does anyone have a card lower than ${RANK_LABELS[q.value as Rank]}?`;
+      return `¿Alguien tiene una carta menor a ${RANK_LABELS[q.value as Rank]}?`;
     case 'BETWEEN':
-      return `Does anyone have a card between ${RANK_LABELS[q.min as Rank]} and ${RANK_LABELS[q.max as Rank]}?`;
+      return `¿Alguien tiene una carta entre ${RANK_LABELS[q.min as Rank]} y ${RANK_LABELS[q.max as Rank]}?`;
     case 'OF_SUIT':
-      return `Does anyone have a card of suit ${SUIT_LABELS[q.suit as Suit]}?`;
+      return `¿Alguien tiene una carta de ${SUIT_LABELS[q.suit as Suit]}?`;
     case 'OF_VALUE':
-      return `Does anyone have a card of value ${RANK_LABELS[q.value as Rank]}?`;
+      return `¿Alguien tiene una carta de valor ${RANK_LABELS[q.value as Rank]}?`;
     case 'REPEATED_VALUE_IN_HAND':
-      return 'Did anyone have a repeated card?';
+      return '¿Alguien tiene un valor repetido en su mano?';
     default:
-      return 'Unknown question';
+      return 'Pregunta desconocida';
   }
 }
