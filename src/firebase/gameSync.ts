@@ -1,4 +1,4 @@
-import { doc, setDoc, updateDoc, getDocs, collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, getDocs, collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db } from './config';
 import {
   buildInitialSyncedState,
@@ -14,8 +14,13 @@ import type { PendingAction, SyncedGameState, MatchStatsAccumulator } from './ga
 import type { Card } from '../game/types';
 import type { AchievementId } from '../game/achievements';
 import { getProfile } from './profile';
+import { subscribeToPlayers, HOST_STALE_THRESHOLD_MS } from './rooms';
+import type { RoomPlayer } from './rooms';
+import { isHostStale } from '../hooks/hostPresenceLogic';
 
 export type { PendingAction, SyncedGameState, PlayerPublicInfo, MatchStatsAccumulator } from './gameSyncLogic';
+
+const DISCONNECTION_CHECK_INTERVAL_MS = 5000;
 
 function gameStateRef(roomCode: string) {
   return doc(db, 'rooms', roomCode, 'gameState', 'current');
@@ -78,9 +83,25 @@ export function startHostReferee(roomCode: string): Unsubscribe {
   const achievementTracker = createAchievementTracker();
   const notifiedAchievements: Record<string, Set<AchievementId>> = {};
 
-  return onSnapshot(gameStateRef(roomCode), async (snap) => {
+  // Se van actualizando con cada suscripción — el chequeo de desconexión
+  // (más abajo) los usa para decidir si ya no queda competencia real.
+  let latestGs: SyncedGameState | null = null;
+  let latestPlayers: RoomPlayer[] = [];
+
+  // Chequeo de seguridad compartido: si para cuando vamos a escribir ya
+  // arrancó una partida MÁS NUEVA en esta misma sala (por ejemplo, alguien
+  // tocó "Jugar de nuevo" y el host ya repartió de vuelta), la escritura
+  // quedó obsoleta — la descartamos en vez de pisar el estado fresco.
+  async function isStillCurrentMatch(expectedStartedAt: number): Promise<boolean> {
+    const freshSnap = await getDoc(gameStateRef(roomCode));
+    const freshStartedAt = freshSnap.exists() ? (freshSnap.data() as SyncedGameState).startedAt : null;
+    return freshStartedAt === expectedStartedAt;
+  }
+
+  const unsubGameState = onSnapshot(gameStateRef(roomCode), async (snap) => {
     if (!snap.exists()) return;
     const gs = snap.data() as SyncedGameState;
+    latestGs = gs;
 
     // Antes de procesar cualquier acción, consultamos el perfil REAL de
     // cada jugador no-anónimo, para que el popup en vivo solo avise de
@@ -136,7 +157,10 @@ export function startHostReferee(roomCode: string): Unsubscribe {
         newState.finalAchievements = currentGrants;
       }
 
+      if (!(await isStillCurrentMatch(gs.startedAt))) return;
+
       await setDoc(gameStateRef(roomCode), { ...newState, pendingAction: null } satisfies SyncedGameState);
+      latestGs = { ...newState, pendingAction: null };
 
       for (const [uid, cards] of Object.entries(changedHands)) {
         await setDoc(handRef(roomCode, uid), { cards });
@@ -145,4 +169,56 @@ export function startHostReferee(roomCode: string): Unsubscribe {
       resolving = false;
     }
   });
+
+  const unsubPlayers = subscribeToPlayers(roomCode, (players) => {
+    latestPlayers = players;
+  });
+
+  // Un jugador desconectado tiene la MISMA consideración que uno
+  // eliminado para decidir quién gana — a menos que se vuelva a conectar
+  // antes de que esto se evalúe. Si de los jugadores VIVOS solo queda uno
+  // realmente conectado, ese gana ahí mismo, sin esperar a que los demás
+  // vuelvan (que puede que nunca pase).
+  const disconnectionCheck = setInterval(async () => {
+    if (resolving || !latestGs || latestGs.status !== 'playing' || latestGs.pendingAction) return;
+
+    const gs = latestGs;
+    const aliveIds = gs.turnOrder.filter((id) => gs.playersPublic[id].alive);
+    if (aliveIds.length <= 1) return; // esto ya lo resuelve el flujo normal de KILL
+
+    const now = Date.now();
+    const stillContending = aliveIds.filter((id) => {
+      const p = latestPlayers.find((pl) => pl.id === id);
+      return !isHostStale(p?.lastSeen, now, HOST_STALE_THRESHOLD_MS);
+    });
+    if (stillContending.length !== 1) return;
+
+    const winnerId = stillContending[0];
+    resolving = true;
+    try {
+      if (!(await isStillCurrentMatch(gs.startedAt))) return;
+
+      finalizeBluffStats(statsAcc, pendingBluffs);
+      const finished: Omit<SyncedGameState, 'pendingAction'> = {
+        ...gs,
+        status: 'finished',
+        winnerId,
+        lastMessage: `${gs.playersPublic[winnerId].name} gana — el resto quedó desconectado.`,
+      };
+      const finalAchievements = computeMatchAchievements(achievementTracker, finished, statsAcc);
+      finished.finalStats = { ...statsAcc };
+      finished.finalAchievements = finalAchievements;
+
+      await setDoc(gameStateRef(roomCode), { ...finished, pendingAction: null } satisfies SyncedGameState);
+      latestGs = { ...finished, pendingAction: null };
+    } finally {
+      resolving = false;
+    }
+  }, DISCONNECTION_CHECK_INTERVAL_MS);
+
+  return () => {
+    unsubGameState();
+    unsubPlayers();
+    clearInterval(disconnectionCheck);
+  };
 }

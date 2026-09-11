@@ -1,10 +1,11 @@
-import { applyPendingAction } from './gameSyncLogic';
-import type { SyncedGameState } from './gameSyncLogic';
-import type { Card } from '../game/types';
+import { applyPendingAction } from '../src/firebase/gameSyncLogic';
+import type { SyncedGameState } from '../src/firebase/gameSyncLogic';
+import type { Card } from '../src/game/types';
 
 function baseGs(overrides: Partial<SyncedGameState> = {}): SyncedGameState {
   return {
     status: 'playing',
+    startedAt: 1000,
     turnOrder: ['p1', 'p2'],
     currentTurnIndex: 0,
     playersPublic: {

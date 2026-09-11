@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuthState } from '../firebase/auth';
-import { getRoomHostId } from '../firebase/rooms';
 import { ensureProfile } from '../firebase/profile';
 import type { UserProfile } from '../firebase/profile';
+import { checkRoomMembership } from '../firebase/rooms';
+import { saveActiveRoom, getSavedActiveRoom, clearActiveRoom } from '../utils/roomPersistence';
 import { HomeScreen } from './HomeScreen';
 import { LoginChoiceScreen } from './LoginChoiceScreen';
 import { ChooseUsernameScreen } from './ChooseUsernameScreen';
@@ -19,10 +20,10 @@ export function SnitchApp() {
   const { user, checked, error } = useAuthState();
   const [screen, setScreen] = useState<Screen>('home');
   const [roomCode, setRoomCode] = useState<string | null>(null);
-  const [hostId, setHostId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [needsUsername, setNeedsUsername] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [reconnectChecked, setReconnectChecked] = useState(false);
 
   useEffect(() => {
     if (!user || user.isAnonymous) {
@@ -36,6 +37,36 @@ export function SnitchApp() {
         if (isNew) setNeedsUsername(true);
       })
       .finally(() => setProfileLoading(false));
+  }, [user]);
+
+  // Si al abrir la app hay una sala guardada de una sesión anterior (F5,
+  // cierre de pestaña sin querer, etc.), confirmamos que todavía seas
+  // miembro real antes de mandarte de vuelta — si el sistema de latido ya
+  // te sacó por desconexión, no reconectamos, vas al inicio como siempre.
+  useEffect(() => {
+    if (!user) {
+      setReconnectChecked(true);
+      return;
+    }
+    const saved = getSavedActiveRoom(user.uid);
+    if (!saved) {
+      setReconnectChecked(true);
+      return;
+    }
+    checkRoomMembership(saved, user.uid)
+      .then(({ valid, status }) => {
+        if (valid) {
+          setRoomCode(saved);
+          setScreen(status === 'playing' ? 'game' : 'lobby');
+        } else {
+          clearActiveRoom();
+        }
+      })
+      .catch(() => {
+        // Si falla la consulta (sin conexión, etc.), no reconectamos a
+        // ciegas — mejor mandar al inicio que a un estado incierto.
+      })
+      .finally(() => setReconnectChecked(true));
   }, [user]);
 
   if (error) {
@@ -70,9 +101,14 @@ export function SnitchApp() {
     );
   }
 
-  async function enterRoom(code: string) {
-    const host = await getRoomHostId(code);
-    setHostId(host);
+  if (!reconnectChecked) {
+    return <LoadingScreen message="Reconectando..." />;
+  }
+
+  const uid = user.uid;
+
+  function enterRoom(code: string) {
+    saveActiveRoom(code, uid);
     setRoomCode(code);
     setScreen('lobby');
   }
@@ -105,7 +141,18 @@ export function SnitchApp() {
   }
 
   if (screen === 'lobby' && roomCode) {
-    return <Lobby roomCode={roomCode} uid={user.uid} onGameStarted={() => setScreen('game')} />;
+    return (
+      <Lobby
+        roomCode={roomCode}
+        uid={user.uid}
+        onGameStarted={() => setScreen('game')}
+        onExit={() => {
+          clearActiveRoom();
+          setRoomCode(null);
+          setScreen('home');
+        }}
+      />
+    );
   }
 
   if (screen === 'game' && roomCode) {
@@ -113,13 +160,13 @@ export function SnitchApp() {
       <MultiplayerGameScreen
         roomCode={roomCode}
         uid={user.uid}
-        isHost={user.uid === hostId}
         isAnonymous={user.isAnonymous}
         onExit={() => {
+          clearActiveRoom();
           setRoomCode(null);
-          setHostId(null);
           setScreen('home');
         }}
+        onReturnToLobby={() => setScreen('lobby')}
       />
     );
   }

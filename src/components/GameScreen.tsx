@@ -54,6 +54,7 @@ export function GameScreen({ playerCount = 4 }: { playerCount?: number }) {
     id: p.id,
     name: p.name,
     alive: p.alive,
+    connected: true,
     lives: p.lives,
     isYou: p.id === actor.id,
     isCurrentTurn: p.id === actor.id,

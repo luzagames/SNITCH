@@ -37,6 +37,11 @@ export interface LiveAchievementEvent {
 
 export interface SyncedGameState {
   status: 'playing' | 'finished';
+  // Sello único de ESTA partida (no del jugador, no de la sala — de esta
+  // partida puntual). Se usa para que el árbitro pueda descartar una
+  // escritura vieja que llegue tarde, si para cuando llega ya arrancó una
+  // partida más nueva (ver startHostReferee en gameSync.ts).
+  startedAt: number;
   turnOrder: string[];
   currentTurnIndex: number;
   playersPublic: Record<string, PlayerPublicInfo>;
@@ -174,6 +179,7 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
   return {
     state: {
       status: 'playing',
+      startedAt: Date.now(),
       turnOrder: engineState.players.map((p) => p.id),
       currentTurnIndex: engineState.currentTurnIndex,
       playersPublic,
@@ -238,7 +244,13 @@ export function applyPendingAction(
     if (result.hit) {
       const victimName = gs.playersPublic[result.hitPlayerId!].name;
       message = `¡Impacto! ${actorName} descubrió que ${victimName} tenía el ${cardLabel(action.card)}.`;
-      revealedCard = { card: action.card, ownerId: result.hitPlayerId!, revealedAt: Date.now() };
+      // Si este KILL fue justo el que terminó la partida, no la mostramos
+      // como flash — así no queda ningún "resto" visual que se pueda
+      // filtrar a la partida siguiente. El mensaje de texto ya cuenta lo
+      // que pasó igual; la pantalla de GANADOR se ve enseguida.
+      if (engineState.status !== 'finished') {
+        revealedCard = { card: action.card, ownerId: result.hitPlayerId!, revealedAt: Date.now() };
+      }
     } else {
       // OJO: este texto tiene que ser IDÉNTICO tanto si fue un fallo real
       // como si fue un bluff sobre la propia carta (result.selfBluff).
@@ -277,6 +289,7 @@ export function applyPendingAction(
   return {
     newState: {
       status: engineState.status === 'finished' ? 'finished' : 'playing',
+      startedAt: gs.startedAt,
       turnOrder: gs.turnOrder,
       currentTurnIndex: engineState.currentTurnIndex,
       playersPublic,

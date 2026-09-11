@@ -4,9 +4,9 @@ import {
   computeMatchAchievements,
   createStatsAccumulator,
   diffNewAchievements,
-} from './gameSyncLogic';
-import type { PlayerPublicInfo, SyncedGameState, MatchStatsAccumulator, DealFlags } from './gameSyncLogic';
-import type { AchievementId } from '../game/achievements';
+} from '../src/firebase/gameSyncLogic';
+import type { PlayerPublicInfo, SyncedGameState, MatchStatsAccumulator, DealFlags } from '../src/firebase/gameSyncLogic';
+import type { AchievementId } from '../src/game/achievements';
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error('FALLÓ: ' + msg);
@@ -42,6 +42,7 @@ function finalState(
   }
   return {
     status: 'finished',
+    startedAt: 1000,
     turnOrder,
     currentTurnIndex: 0,
     playersPublic,

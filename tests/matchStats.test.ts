@@ -1,5 +1,5 @@
-import { applyStatsEvent, finalizeBluffStats } from './gameSyncLogic';
-import type { ActionStatsEvent, MatchStatsAccumulator } from './gameSyncLogic';
+import { applyStatsEvent, finalizeBluffStats } from '../src/firebase/gameSyncLogic';
+import type { ActionStatsEvent, MatchStatsAccumulator } from '../src/firebase/gameSyncLogic';
 
 function assert(cond: boolean, msg: string) {
   if (!cond) throw new Error('FALLÓ: ' + msg);
@@ -122,9 +122,9 @@ console.log('\nTodos los escenarios de estadísticas pasaron correctamente.');
 // combinando applyPendingAction (el motor real) con el acumulador de
 // estadísticas — no solo piezas aisladas.
 // ============================================================
-import { applyPendingAction } from './gameSyncLogic';
-import type { SyncedGameState } from './gameSyncLogic';
-import type { Card } from '../game/types';
+import { applyPendingAction } from '../src/firebase/gameSyncLogic';
+import type { SyncedGameState } from '../src/firebase/gameSyncLogic';
+import type { Card } from '../src/game/types';
 
 {
   const acc: Record<string, MatchStatsAccumulator> = {};
@@ -132,6 +132,7 @@ import type { Card } from '../game/types';
 
   let gs: SyncedGameState = {
     status: 'playing',
+    startedAt: 1000,
     turnOrder: ['p1', 'p2'],
     currentTurnIndex: 0,
     playersPublic: {

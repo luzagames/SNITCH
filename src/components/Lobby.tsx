@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import { subscribeToPlayers, subscribeToRoomStatus, shareInviteLink } from '../firebase/rooms';
-import type { RoomPlayer } from '../firebase/rooms';
+import { subscribeToRoom, shareInviteLink, leaveRoom } from '../firebase/rooms';
+import { useHostPresence } from '../hooks/useHostPresence';
 import { dealAndStartGame } from '../firebase/gameSync';
 
 export function Lobby({
   roomCode,
   uid,
   onGameStarted,
+  onExit,
 }: {
   roomCode: string;
   uid: string;
   onGameStarted: () => void;
+  onExit: () => void;
 }) {
-  const [players, setPlayers] = useState<RoomPlayer[]>([]);
+  const { hostId, isHost, players, kicked } = useHostPresence(roomCode, uid);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   async function handleShare() {
@@ -24,19 +26,33 @@ export function Lobby({
     }
   }
 
+  async function handleLeaveLobby() {
+    await leaveRoom(roomCode, uid).catch(() => {});
+    onExit();
+  }
+
   useEffect(() => {
-    const unsubPlayers = subscribeToPlayers(roomCode, setPlayers);
-    const unsubStatus = subscribeToRoomStatus(roomCode, (status) => {
-      if (status === 'playing') onGameStarted();
+    const unsubRoom = subscribeToRoom(roomCode, (info) => {
+      if (info.status === 'playing') onGameStarted();
     });
-    return () => {
-      unsubPlayers();
-      unsubStatus();
-    };
+    return () => unsubRoom();
   }, [roomCode, onGameStarted]);
 
-  const isHost = players.find((p) => p.id === uid)?.isHost ?? false;
   const canStart = isHost && players.length >= 2;
+
+  if (kicked) {
+    return (
+      <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        <p style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>Te desconectaste de la sala.</p>
+        <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginTop: 8 }}>
+          Pasó demasiado tiempo sin señal tuya, así que te sacamos del lobby.
+        </p>
+        <button className="snitch-btn-accent" onClick={onExit} style={{ marginTop: 24 }}>
+          VOLVER AL INICIO
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
@@ -65,7 +81,8 @@ export function Lobby({
         {players.map((p) => (
           <li key={p.id}>
             {p.name}
-            {p.isHost ? ' (host)' : ''}
+            {p.id === hostId ? ' (host)' : ''}
+            {p.id === uid ? ' (vos)' : ''}
           </li>
         ))}
       </ul>
@@ -88,6 +105,10 @@ export function Lobby({
           Necesitás al menos 2 jugadores para empezar.
         </p>
       )}
+
+      <button onClick={handleLeaveLobby} style={{ marginTop: 24, fontSize: 13, color: 'var(--snitch-muted)' }}>
+        SALIR DEL LOBBY
+      </button>
     </div>
   );
 }

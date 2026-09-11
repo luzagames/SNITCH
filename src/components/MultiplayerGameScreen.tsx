@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee, announcePlayerLeft } from '../firebase/gameSync';
 import type { SyncedGameState } from '../firebase/gameSync';
+import { subscribeToRoom, resetRoomToLobby, leaveRoom, HOST_STALE_THRESHOLD_MS } from '../firebase/rooms';
+import { useHostPresence } from '../hooks/useHostPresence';
+import { isHostStale } from '../hooks/hostPresenceLogic';
 import { recordMatchStats } from '../firebase/profile';
 import { createStatsAccumulator } from '../firebase/gameSyncLogic';
 import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
@@ -21,28 +24,48 @@ const REVEAL_DURATION_MS = 1000;
 export function MultiplayerGameScreen({
   roomCode,
   uid,
-  isHost,
   isAnonymous,
   onExit,
+  onReturnToLobby,
 }: {
   roomCode: string;
   uid: string;
-  isHost: boolean;
   isAnonymous: boolean;
   onExit: () => void;
+  onReturnToLobby: () => void;
 }) {
+  const { hostId, isHost, players, kicked } = useHostPresence(roomCode, uid);
   const [gs, setGs] = useState<SyncedGameState | null>(null);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [panel, setPanel] = useState<PanelState>('closed');
   const [spectating, setSpectating] = useState(false);
   const [flashCard, setFlashCard] = useState<Card | null>(null);
   const lastRevealSeen = useRef<number | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAchievementEventSeen = useRef<number | null>(null);
   const statsRecorded = useRef(false);
   const { current: currentToast, pushAchievements } = useAchievementToastQueue();
   const [shareWinFeedback, setShareWinFeedback] = useState<string | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
   const victoryCardRef = useRef<HTMLDivElement>(null);
+  const previousKnownHostId = useRef<string | null>(null);
+  const [becameHostNotice, setBecameHostNotice] = useState(false);
+
+  // Avisamos SOLO cuando ya sabíamos con certeza que el host era OTRA
+  // persona (previousKnownHostId tenía un valor real, no null) y después
+  // pasa a ser uid — eso sí es una toma de posta real. Si arrancamos
+  // siendo host desde el vamos, hostId pasa directo de null (todavía no
+  // sabemos nada) a uid, sin pasar por "sabíamos que era otro" — por eso
+  // NO alcanza con mirar si isHost pasó de false a true: ese salto inicial
+  // de null a uid también cuenta como "false a true" y disparaba el
+  // cartel de forma incorrecta apenas arrancaba la partida.
+  useEffect(() => {
+    if (previousKnownHostId.current !== null && previousKnownHostId.current !== uid && hostId === uid) {
+      setBecameHostNotice(true);
+      setTimeout(() => setBecameHostNotice(false), 5000);
+    }
+    if (hostId !== null) previousKnownHostId.current = hostId;
+  }, [hostId, uid]);
 
   async function handleShareWin() {
     if (!victoryCardRef.current || sharingImage) return;
@@ -67,17 +90,57 @@ export function MultiplayerGameScreen({
     const unsubGs = subscribeToGameState(roomCode, setGs);
     const unsubHand = subscribeToOwnHand(roomCode, uid, setMyHand);
     const unsubReferee = isHost ? startHostReferee(roomCode) : undefined;
+    // Si el host toca "JUGAR DE NUEVO", la sala vuelve a 'lobby' — acá lo
+    // detectamos para que TODOS (no solo quien tocó el botón) vuelvan al
+    // lobby juntos, no solo el host.
+    const unsubRoomStatus = subscribeToRoom(roomCode, (info) => {
+      if (info.status === 'lobby') onReturnToLobby();
+    });
     return () => {
       unsubGs();
       unsubHand();
       unsubReferee?.();
+      unsubRoomStatus();
     };
-  }, [roomCode, uid, isHost]);
+  }, [roomCode, uid, isHost, onReturnToLobby]);
+
+  // Si le toca el turno a alguien que está desconectado (se fue de la
+  // sala, o cerró la app sin avisar), el juego se trabaría esperando su
+  // jugada para siempre. El host vigila esto y le pasa el turno
+  // automáticamente — así el botón de "abandonar mientras jugás" no deja
+  // colgado al resto de la mesa.
+  useEffect(() => {
+    if (!isHost || !gs || gs.status !== 'playing' || gs.pendingAction) return;
+
+    const interval = setInterval(() => {
+      const currentPlayerId = gs.turnOrder[gs.currentTurnIndex];
+      if (currentPlayerId === uid) return; // nunca nos auto-pasamos a nosotros mismos por esto
+      const player = players.find((p) => p.id === currentPlayerId);
+      if (isHostStale(player?.lastSeen, Date.now(), HOST_STALE_THRESHOLD_MS)) {
+        submitAction(roomCode, { type: 'pass', actorId: currentPlayerId }).catch(() => {});
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isHost, gs, players, roomCode, uid]);
 
   // Cuando aparece un revealedCard NUEVO (distinto al último que ya vimos),
   // lo mostramos como un flash arriba de la mesa durante 1 segundo. Se
   // controla enteramente en el cliente: no depende de que Firestore lo
   // borre, cada navegador decide solo cuándo esconderlo.
+  //
+  // OJO — bug real que costó encontrar: Firestore a veces emite la MISMA
+  // actualización más de una vez (una versión preliminar y después la
+  // confirmada). Cada emisión trae un objeto NUEVO, así que este efecto se
+  // vuelve a ejecutar aunque el valor sea lógicamente el mismo. Si el
+  // temporizador se devolviera como función de limpieza del efecto (el
+  // patrón "normal" de React), esa segunda ejecución CANCELARÍA el
+  // temporizador ya armado, y como el chequeo de abajo corta antes de
+  // armar uno nuevo (para no re-mostrar el mismo evento), la carta se
+  // quedaba pegada en pantalla sin ningún reloj corriendo que la fuera a
+  // esconder — no era un tema de datos viejos, era esto. Por eso el
+  // temporizador vive en un ref aparte, que NO se cancela solo porque el
+  // efecto se vuelva a ejecutar.
   useEffect(() => {
     if (!gs?.revealedCard) return;
     if (gs.revealedCard.revealedAt === lastRevealSeen.current) return;
@@ -85,9 +148,21 @@ export function MultiplayerGameScreen({
     lastRevealSeen.current = gs.revealedCard.revealedAt;
     setFlashCard(gs.revealedCard.card);
 
-    const timer = setTimeout(() => setFlashCard(null), REVEAL_DURATION_MS);
-    return () => clearTimeout(timer);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => {
+      setFlashCard(null);
+      flashTimerRef.current = null;
+    }, REVEAL_DURATION_MS);
   }, [gs?.revealedCard]);
+
+  // Esta limpieza SÍ es la correcta: solo cancela el temporizador si el
+  // componente se desmonta de verdad (por ejemplo, al salir de la
+  // partida), no en cada re-render.
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    };
+  }, []);
 
   // Cuando aparece un liveAchievementEvent NUEVO, y me toca a mí, lo
   // metemos en la cola de popups — esto es lo que permite que se vean EN
@@ -122,6 +197,24 @@ export function MultiplayerGameScreen({
       });
   }, [gs, uid, isAnonymous, pushAchievements]);
 
+  // Nos sacaron de la sala de verdad (desconexión, o el host nos sacó por
+  // fantasma) — con las Security Rules puestas, seguir intentando actuar
+  // acá solo generaría errores de permiso en silencio. Mejor avisar y
+  // sacar a la persona de esta pantalla trabada.
+  if (kicked) {
+    return (
+      <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        <p style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>Te desconectaste de la sala.</p>
+        <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginTop: 8 }}>
+          Pasó demasiado tiempo sin señal tuya, así que te sacamos de la partida.
+        </p>
+        <button className="snitch-btn-accent" onClick={onExit} style={{ marginTop: 24 }}>
+          VOLVER AL INICIO
+        </button>
+      </div>
+    );
+  }
+
   if (!gs) {
     return <LoadingScreen message="Cargando partida..." />;
   }
@@ -134,6 +227,16 @@ export function MultiplayerGameScreen({
   async function handleLeaveGame() {
     const myName = gs!.playersPublic[uid]?.name ?? 'Alguien';
     await announcePlayerLeft(roomCode, myName).catch(() => {});
+    await leaveRoom(roomCode, uid).catch(() => {});
+    onExit();
+  }
+
+  // El botón "SALIR" de la pantalla final (GANADOR) es un caso aparte del
+  // de "SALIR DE LA PARTIDA" — pero necesita la misma limpieza: sacar al
+  // jugador de la lista real de la sala, para que un "Jugar de nuevo"
+  // posterior no lo arrastre como fantasma.
+  async function handleExitAfterMatch() {
+    await leaveRoom(roomCode, uid).catch(() => {});
     onExit();
   }
 
@@ -164,7 +267,20 @@ export function MultiplayerGameScreen({
             )}
           </div>
         )}
-        <button className="snitch-btn-accent" onClick={onExit} style={{ marginTop: 24 }}>
+        {isHost ? (
+          <button
+            className="snitch-btn-accent"
+            onClick={() => resetRoomToLobby(roomCode)}
+            style={{ marginTop: 24, display: 'block', marginInline: 'auto' }}
+          >
+            JUGAR DE NUEVO
+          </button>
+        ) : (
+          <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginTop: 24 }}>
+            Si querés otra ronda, esperá a que el host toque "Jugar de nuevo".
+          </p>
+        )}
+        <button className="snitch-btn-accent" onClick={handleExitAfterMatch} style={{ marginTop: 12 }}>
           SALIR
         </button>
       </div>
@@ -182,19 +298,7 @@ export function MultiplayerGameScreen({
           <button className="snitch-btn-accent" onClick={() => setSpectating(true)}>
             OBSERVAR
           </button>
-          <button
-            onClick={handleLeaveGame}
-            disabled={isHost}
-            title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
-          >
-            SALIR DE LA PARTIDA
-          </button>
-          {isHost && (
-            <p style={{ fontSize: 14, color: 'var(--snitch-muted)' }}>
-              Como sos el host, tenés que quedarte (aunque sea mirando) hasta que termine la partida — tu
-              navegador es el que sigue arbitrando las jugadas de los demás.
-            </p>
-          )}
+          <button onClick={handleLeaveGame}>SALIR DE LA PARTIDA</button>
         </div>
       </div>
     );
@@ -203,10 +307,15 @@ export function MultiplayerGameScreen({
   const seatData: PlayerSeatData[] = gs.turnOrder.map((playerId) => {
     const pub = gs.playersPublic[playerId];
     const isYou = playerId === uid;
+    const roomPlayer = players.find((p) => p.id === playerId);
     return {
       id: playerId,
       name: pub.name,
       alive: pub.alive,
+      // Vos mismo nunca te ves "desconectado" a vos mismo, obvio. Para el
+      // resto, comparamos el último latido que tenemos contra el mismo
+      // umbral que usa el sistema de toma de posta.
+      connected: isYou || !isHostStale(roomPlayer?.lastSeen, Date.now(), HOST_STALE_THRESHOLD_MS),
       lives: pub.lives,
       isYou,
       isCurrentTurn: playerId === gs.turnOrder[gs.currentTurnIndex],
@@ -233,6 +342,42 @@ export function MultiplayerGameScreen({
   return (
     <div className="snitch-root" style={{ padding: 'clamp(12px, 4vw, 24px)' }}>
       {currentToast && <AchievementToast achievementId={currentToast} />}
+      {!iAmEliminated && (
+        <button
+          onClick={handleLeaveGame}
+          style={{
+            position: 'fixed',
+            top: 8,
+            left: 8,
+            zIndex: 40,
+            fontSize: 11,
+            padding: '4px 8px',
+            color: 'var(--snitch-muted)',
+            border: '1px solid var(--snitch-muted)',
+            background: 'var(--snitch-bg)',
+          }}
+        >
+          ABANDONAR
+        </button>
+      )}
+      {becameHostNotice && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 50,
+            background: 'var(--snitch-bg)',
+            border: '2px solid var(--snitch-accent)',
+            padding: '8px 14px',
+            fontSize: 14,
+            textAlign: 'center',
+          }}
+        >
+          El host anterior se desconectó — ahora sos vos quien maneja la partida.
+        </div>
+      )}
       {iAmEliminated && spectating && (
         <div
           style={{
@@ -246,13 +391,7 @@ export function MultiplayerGameScreen({
           }}
         >
           <span style={{ color: 'var(--snitch-muted)', fontSize: 16 }}>Modo espectador</span>
-          <button
-            onClick={handleLeaveGame}
-            disabled={isHost}
-            title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
-          >
-            SALIR DE LA PARTIDA
-          </button>
+          <button onClick={handleLeaveGame}>SALIR DE LA PARTIDA</button>
         </div>
       )}
 

@@ -7,6 +7,7 @@ export interface PlayerSeatData {
   id: string;
   name: string;
   alive: boolean;
+  connected: boolean;
   lives: number;
   cardStates: CardSlotState[]; // 3 estados, uno por carta en mano
   isYou: boolean;
@@ -16,6 +17,7 @@ export interface PlayerSeatData {
 export function PlayerSeat({ player, featured = false }: { player: PlayerSeatData; featured?: boolean }) {
   const avatarSize = featured ? 140 : 72;
   const nameFontSize = featured ? 28 : 20;
+  const dimmed = !player.alive || !player.connected;
 
   return (
     <div
@@ -24,8 +26,8 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
         flexDirection: 'column',
         alignItems: 'center',
         gap: 4,
-        opacity: player.alive ? 1 : 0.6,
-        filter: player.alive ? 'none' : 'grayscale(1)',
+        opacity: dimmed ? 0.6 : 1,
+        filter: dimmed ? 'grayscale(1)' : 'none',
       }}
     >
       <div
@@ -54,10 +56,12 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
         {player.isYou ? ' (vos)' : ''}
       </span>
 
-      {player.alive ? (
-        <Hearts lives={player.lives} />
-      ) : (
+      {!player.alive ? (
         <span style={{ fontSize: 16, color: 'var(--snitch-muted)' }}>ELIMINADO</span>
+      ) : !player.connected ? (
+        <span style={{ fontSize: 16, color: 'var(--snitch-muted)' }}>DESCONECTADO</span>
+      ) : (
+        <Hearts lives={player.lives} />
       )}
     </div>
   );
