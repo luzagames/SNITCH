@@ -46,6 +46,7 @@ export interface SyncedGameState {
   pendingAction: PendingAction | null;
   revealedCard: RevealedCard | null;
   dealFlags: Record<string, DealFlags>;
+  isAnonymous: Record<string, boolean>;
   // Solo se completan UNA VEZ, cuando la partida termina. Cada cliente lee
   // únicamente su propia entrada para actualizar su perfil.
   finalStats: Record<string, MatchStatsAccumulator> | null;
@@ -151,7 +152,7 @@ export function finalizeBluffStats(
 }
 
 // Arma el SyncedGameState inicial (llamado al arrancar la partida).
-export function buildInitialSyncedState(players: { id: string; name: string }[]): {
+export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean }[]): {
   state: Omit<SyncedGameState, 'pendingAction'>;
   hands: Record<string, Card[]>;
 } {
@@ -159,6 +160,8 @@ export function buildInitialSyncedState(players: { id: string; name: string }[])
   const playersPublic: Record<string, PlayerPublicInfo> = {};
   const hands: Record<string, Card[]> = {};
   const dealFlags: Record<string, DealFlags> = {};
+  const isAnonymous: Record<string, boolean> = {};
+  for (const p of players) isAnonymous[p.id] = p.isAnonymous;
   for (const p of engineState.players) {
     playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length };
     hands[p.id] = p.hand;
@@ -179,6 +182,7 @@ export function buildInitialSyncedState(players: { id: string; name: string }[])
       lastAnswers: null,
       revealedCard: null,
       dealFlags,
+      isAnonymous,
       finalStats: null,
       finalAchievements: null,
       liveAchievementEvent: null,
@@ -281,6 +285,7 @@ export function applyPendingAction(
       lastAnswers,
       revealedCard,
       dealFlags: gs.dealFlags,
+      isAnonymous: gs.isAnonymous,
       finalStats: gs.finalStats,
       finalAchievements: gs.finalAchievements,
       liveAchievementEvent: gs.liveAchievementEvent,
@@ -400,6 +405,8 @@ export function computeMatchAchievements(
   const winnerId = finalState.winnerId;
 
   for (const uid of playerIds) {
+    if (finalState.isAnonymous[uid]) continue; // los anónimos no guardan logros, nunca se les otorga nada
+
     const pub = finalState.playersPublic[uid];
     const won = uid === winnerId;
     const stats = matchStats[uid];
@@ -422,7 +429,9 @@ export function computeMatchAchievements(
   }
 
   if (playerCount === 6 && playerIds.every((id) => tracker.firstActionType[id] === 'kill')) {
-    for (const uid of playerIds) grant(uid, 'ronda_troll');
+    for (const uid of playerIds) {
+      if (!finalState.isAnonymous[uid]) grant(uid, 'ronda_troll');
+    }
   }
 
   return grants;

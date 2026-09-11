@@ -144,6 +144,7 @@ import type { Card } from '../game/types';
     pendingAction: null,
     revealedCard: null,
     dealFlags: {},
+    isAnonymous: { p1: false, p2: false },
     finalStats: null,
     finalAchievements: null,
     liveAchievementEvent: null,

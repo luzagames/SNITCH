@@ -17,6 +17,7 @@ export interface RoomPlayer {
   id: string;
   name: string;
   isHost: boolean;
+  isAnonymous: boolean;
 }
 
 export type JoinRoomError = 'not_found' | 'full' | 'already_started';
@@ -31,7 +32,7 @@ function generateRoomCode(): string {
 
 // Crea una sala nueva con un código único y agrega al host como primer jugador.
 // Reintenta si por casualidad el código generado ya existe (muy poco probable).
-export async function createRoom(hostUid: string, hostName: string): Promise<string> {
+export async function createRoom(hostUid: string, hostName: string, isAnonymous: boolean): Promise<string> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateRoomCode();
     const roomRef = doc(db, 'rooms', code);
@@ -46,6 +47,7 @@ export async function createRoom(hostUid: string, hostName: string): Promise<str
     await setDoc(doc(db, 'rooms', code, 'players', hostUid), {
       name: hostName,
       isHost: true,
+      isAnonymous,
       joinedAt: serverTimestamp(),
     });
     return code;
@@ -59,7 +61,8 @@ export async function createRoom(hostUid: string, hostName: string): Promise<str
 export async function joinRoom(
   code: string,
   uid: string,
-  name: string
+  name: string,
+  isAnonymous: boolean
 ): Promise<{ ok: true } | { ok: false; error: JoinRoomError }> {
   const roomRef = doc(db, 'rooms', code);
   const roomSnap = await getDoc(roomRef);
@@ -86,6 +89,7 @@ export async function joinRoom(
   await setDoc(doc(playersRef, uid), {
     name,
     isHost: false,
+    isAnonymous,
     joinedAt: serverTimestamp(),
   });
 
@@ -97,6 +101,36 @@ export async function getRoomHostId(code: string): Promise<string | null> {
   return snap.exists() ? (snap.data().hostId as string) : null;
 }
 
+// Arma un link que ya incluye el código de sala, para que quien lo recibe
+// no tenga que escribirlo a mano — solo abrir el link y tocar UNIRSE.
+export function buildInviteLink(code: string): string {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('join', code);
+  return url.toString();
+}
+
+// Usa el selector nativo de "compartir" del celular/navegador si está
+// disponible (WhatsApp, Mensajes, etc. aparecen ahí solos). Si no está
+// disponible (la mayoría de los navegadores de escritorio), copia el link
+// al portapapeles y avisa con el valor de retorno.
+export async function shareInviteLink(code: string, hostName: string): Promise<'shared' | 'copied'> {
+  const link = buildInviteLink(code);
+  const text = `¡Unite a mi partida de SNITCH! Sala de ${hostName}.`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'SNITCH', text, url: link });
+      return 'shared';
+    } catch {
+      // Si cancela el selector nativo, caemos al portapapeles igual.
+    }
+  }
+  await navigator.clipboard.writeText(link);
+  return 'copied';
+}
+
 export function subscribeToPlayers(code: string, callback: (players: RoomPlayer[]) => void): Unsubscribe {
   const playersRef = collection(db, 'rooms', code, 'players');
   return onSnapshot(playersRef, (snap) => {
@@ -104,6 +138,7 @@ export function subscribeToPlayers(code: string, callback: (players: RoomPlayer[
       id: d.id,
       name: d.data().name as string,
       isHost: d.data().isHost as boolean,
+      isAnonymous: (d.data().isAnonymous as boolean) ?? false,
     }));
     callback(players);
   });

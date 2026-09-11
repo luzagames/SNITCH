@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { subscribeToPlayers, subscribeToRoomStatus } from '../firebase/rooms';
+import { subscribeToPlayers, subscribeToRoomStatus, shareInviteLink } from '../firebase/rooms';
 import type { RoomPlayer } from '../firebase/rooms';
 import { dealAndStartGame } from '../firebase/gameSync';
 
@@ -13,6 +13,16 @@ export function Lobby({
   onGameStarted: () => void;
 }) {
   const [players, setPlayers] = useState<RoomPlayer[]>([]);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  async function handleShare() {
+    const me = players.find((p) => p.id === uid);
+    const result = await shareInviteLink(roomCode, me?.name ?? 'un amigo');
+    setShareFeedback(result === 'copied' ? '¡Link copiado!' : null);
+    if (result === 'copied') {
+      setTimeout(() => setShareFeedback(null), 2500);
+    }
+  }
 
   useEffect(() => {
     const unsubPlayers = subscribeToPlayers(roomCode, setPlayers);
@@ -45,6 +55,11 @@ export function Lobby({
         {roomCode}
       </p>
 
+      <button onClick={handleShare} style={{ fontSize: 14, marginTop: 4 }}>
+        COMPARTIR SALA
+      </button>
+      {shareFeedback && <p style={{ fontSize: 13, color: 'var(--snitch-muted)', marginTop: 4 }}>{shareFeedback}</p>}
+
       <p style={{ fontSize: 18, color: 'var(--snitch-muted)', marginTop: 32, marginBottom: 8 }}>JUGADORES</p>
       <ul style={{ listStyle: 'none', padding: 0, fontSize: 22 }}>
         {players.map((p) => (
@@ -59,7 +74,7 @@ export function Lobby({
         <button
           className="snitch-btn-accent"
           disabled={!canStart}
-          onClick={() => dealAndStartGame(roomCode, players.map((p) => ({ id: p.id, name: p.name })))}
+          onClick={() => dealAndStartGame(roomCode, players.map((p) => ({ id: p.id, name: p.name, isAnonymous: p.isAnonymous })))}
           style={{ marginTop: 24 }}
         >
           EMPEZAR PARTIDA

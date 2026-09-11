@@ -13,6 +13,7 @@ import {
 import type { PendingAction, SyncedGameState, MatchStatsAccumulator } from './gameSyncLogic';
 import type { Card } from '../game/types';
 import type { AchievementId } from '../game/achievements';
+import { getProfile } from './profile';
 
 export type { PendingAction, SyncedGameState, PlayerPublicInfo, MatchStatsAccumulator } from './gameSyncLogic';
 
@@ -25,7 +26,7 @@ function handRef(roomCode: string, uid: string) {
 }
 
 // Se llama UNA vez, del lado del host, cuando arranca la partida.
-export async function dealAndStartGame(roomCode: string, players: { id: string; name: string }[]) {
+export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean }[]) {
   const { state, hands } = buildInitialSyncedState(players);
 
   for (const [uid, cards] of Object.entries(hands)) {
@@ -47,6 +48,14 @@ export function subscribeToOwnHand(roomCode: string, uid: string, callback: (car
   });
 }
 
+// Un jugador eliminado/espectador se va de la sala. Esto es solo un
+// mensaje informativo (no toca vidas, cartas ni turnos) — por eso, a
+// diferencia de KILL/ASK/PASAR, no pasa por el árbitro: cualquier cliente
+// puede escribirlo directo, como ya hacemos con el resto de la sala.
+export async function announcePlayerLeft(roomCode: string, playerName: string): Promise<void> {
+  await updateDoc(gameStateRef(roomCode), { lastMessage: `${playerName} abandonó la partida.` });
+}
+
 // Cualquier jugador llama esto en su turno: no resuelve nada localmente,
 // solo "pide" la acción. El navegador del host es quien la procesa.
 export async function submitAction(roomCode: string, action: PendingAction) {
@@ -63,6 +72,7 @@ export async function submitAction(roomCode: string, action: PendingAction) {
 // partida termina y recién ahí se manda un resumen final por jugador.
 export function startHostReferee(roomCode: string): Unsubscribe {
   let resolving = false;
+  let seeded = false;
   const statsAcc: Record<string, MatchStatsAccumulator> = {};
   const pendingBluffs: Record<string, string[]> = {};
   const achievementTracker = createAchievementTracker();
@@ -71,6 +81,20 @@ export function startHostReferee(roomCode: string): Unsubscribe {
   return onSnapshot(gameStateRef(roomCode), async (snap) => {
     if (!snap.exists()) return;
     const gs = snap.data() as SyncedGameState;
+
+    // Antes de procesar cualquier acción, consultamos el perfil REAL de
+    // cada jugador no-anónimo, para que el popup en vivo solo avise de
+    // logros genuinamente NUEVOS — si ya tenían "Primera Sangre" de una
+    // partida anterior, conseguirla de nuevo acá no debe re-notificar.
+    if (!seeded) {
+      seeded = true;
+      for (const uid of gs.turnOrder) {
+        if (gs.isAnonymous[uid]) continue;
+        const profile = await getProfile(uid).catch(() => null);
+        notifiedAchievements[uid] = new Set(profile?.achievements ?? []);
+      }
+    }
+
     if (!gs.pendingAction || resolving) return;
 
     resolving = true;

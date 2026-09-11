@@ -31,10 +31,15 @@ function finalState(
   turnOrder: string[],
   winnerId: string | null,
   playersPublic: Record<string, PlayerPublicInfo>,
-  dealFlags: Record<string, DealFlags> = {}
+  dealFlags: Record<string, DealFlags> = {},
+  anonymousOverrides: Record<string, boolean> = {}
 ): Omit<SyncedGameState, 'pendingAction'> {
   const flags: Record<string, DealFlags> = {};
-  for (const id of turnOrder) flags[id] = dealFlags[id] ?? { hadTriple: false, hadTwoJokers: false };
+  const isAnonymous: Record<string, boolean> = {};
+  for (const id of turnOrder) {
+    flags[id] = dealFlags[id] ?? { hadTriple: false, hadTwoJokers: false };
+    isAnonymous[id] = anonymousOverrides[id] ?? false;
+  }
   return {
     status: 'finished',
     turnOrder,
@@ -45,6 +50,7 @@ function finalState(
     lastAnswers: null,
     revealedCard: null,
     dealFlags: flags,
+    isAnonymous,
     finalStats: null,
     finalAchievements: null,
     liveAchievementEvent: null,
@@ -272,6 +278,23 @@ function finalState(
 
   const round3 = diffNewAchievements(notified, { p1: ['primera_sangre', 'hat_trick'] });
   assert(JSON.stringify(round3) === JSON.stringify({ p1: ['hat_trick'] }), 'Diff: si aparece uno nuevo además del viejo, solo devuelve el nuevo');
+}
+
+// --- 15. Los jugadores anónimos NUNCA reciben logros ---
+{
+  const t = createAchievementTracker();
+  const grants = computeMatchAchievements(t, finalState(['p1', 'p2'], 'p1', pub({ p1: { handCount: 1 } }, ['p1', 'p2']), {}, { p1: true }), {});
+  assert(!grants.p1, 'Anónimo: nunca recibe nada, ni siquiera "Última Bala" ganando con 1 carta');
+}
+{
+  // Ronda Troll: los 6 hicieron KILL primero, pero p6 es anónimo — no debe recibirlo
+  const t = createAchievementTracker();
+  const ids = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'];
+  const p = pub({}, ids);
+  for (const id of ids) trackAchievementEvent(t, { actorId: id, type: 'kill', killHit: false }, aliveMapFrom(p), p, undefined);
+  const grants = computeMatchAchievements(t, finalState(ids, null, p, {}, { p6: true }), {});
+  assert(!!grants.p1?.includes('ronda_troll'), 'Ronda Troll: los demás SÍ lo reciben aunque uno sea anónimo');
+  assert(!grants.p6, 'Ronda Troll: pero el anónimo (p6) no recibe nada');
 }
 
 console.log('\nTodos los tests de logros pasaron correctamente (13 casos, cubriendo los 17 logros + negativos clave).');

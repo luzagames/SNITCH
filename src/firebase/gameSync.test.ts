@@ -17,6 +17,7 @@ function baseGs(overrides: Partial<SyncedGameState> = {}): SyncedGameState {
     pendingAction: null,
     revealedCard: null,
     dealFlags: {},
+    isAnonymous: { p1: false, p2: false },
     finalStats: null,
     finalAchievements: null,
     liveAchievementEvent: null,

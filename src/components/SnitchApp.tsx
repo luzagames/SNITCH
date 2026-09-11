@@ -7,12 +7,13 @@ import { HomeScreen } from './HomeScreen';
 import { LoginChoiceScreen } from './LoginChoiceScreen';
 import { ChooseUsernameScreen } from './ChooseUsernameScreen';
 import { ProfileScreen } from './ProfileScreen';
+import { RulesScreen } from './RulesScreen';
 import { Lobby } from './Lobby';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
-type Screen = 'home' | 'profile' | 'lobby' | 'game';
+type Screen = 'home' | 'profile' | 'rules' | 'lobby' | 'game';
 
 export function SnitchApp() {
   const { user, checked, error } = useAuthState();
@@ -84,8 +85,13 @@ export function SnitchApp() {
         isAnonymous={user.isAnonymous}
         onEnterRoom={enterRoom}
         onOpenProfile={() => setScreen('profile')}
+        onOpenRules={() => setScreen('rules')}
       />
     );
+  }
+
+  if (screen === 'rules') {
+    return <RulesScreen onBack={() => setScreen('home')} />;
   }
 
   if (screen === 'profile') {

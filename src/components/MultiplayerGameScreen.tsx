@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee } from '../firebase/gameSync';
+import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee, announcePlayerLeft } from '../firebase/gameSync';
 import type { SyncedGameState } from '../firebase/gameSync';
 import { recordMatchStats } from '../firebase/profile';
 import { createStatsAccumulator } from '../firebase/gameSyncLogic';
 import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
+import { VictoryCard } from './VictoryCard';
+import { captureAndShareImage } from '../utils/shareImage';
 import { Table } from './Table';
 import { KillPicker } from './KillPicker';
 import { AskPicker } from './AskPicker';
@@ -38,6 +40,28 @@ export function MultiplayerGameScreen({
   const lastAchievementEventSeen = useRef<number | null>(null);
   const statsRecorded = useRef(false);
   const { current: currentToast, pushAchievements } = useAchievementToastQueue();
+  const [shareWinFeedback, setShareWinFeedback] = useState<string | null>(null);
+  const [sharingImage, setSharingImage] = useState(false);
+  const victoryCardRef = useRef<HTMLDivElement>(null);
+
+  async function handleShareWin() {
+    if (!victoryCardRef.current || sharingImage) return;
+    setSharingImage(true);
+    setShareWinFeedback(null);
+    try {
+      const result = await captureAndShareImage(
+        victoryCardRef.current,
+        'snitch-victoria.png',
+        '¡Gané una partida de SNITCH! 🏆🕵️'
+      );
+      if (result === 'downloaded') setShareWinFeedback('¡Imagen descargada!');
+    } catch {
+      setShareWinFeedback('No se pudo generar la imagen.');
+    } finally {
+      setSharingImage(false);
+      setTimeout(() => setShareWinFeedback(null), 2500);
+    }
+  }
 
   useEffect(() => {
     const unsubGs = subscribeToGameState(roomCode, setGs);
@@ -107,14 +131,39 @@ export function MultiplayerGameScreen({
   const actorName = gs.playersPublic[gs.turnOrder[gs.currentTurnIndex]]?.name ?? '';
   const iAmEliminated = gs.playersPublic[uid] ? !gs.playersPublic[uid].alive : false;
 
+  async function handleLeaveGame() {
+    const myName = gs!.playersPublic[uid]?.name ?? 'Alguien';
+    await announcePlayerLeft(roomCode, myName).catch(() => {});
+    onExit();
+  }
+
   if (gs.status === 'finished') {
     const winnerName = gs.winnerId ? gs.playersPublic[gs.winnerId]?.name : '???';
+    const iWon = gs.winnerId === uid;
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
         {currentToast && <AchievementToast achievementId={currentToast} />}
+        {iWon && (
+          <VictoryCard
+            ref={victoryCardRef}
+            winnerName={winnerName ?? '???'}
+            hand={myHand}
+            opponentNames={gs.turnOrder.filter((id) => id !== gs.winnerId).map((id) => gs.playersPublic[id]?.name ?? '')}
+          />
+        )}
         <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>GANADOR</p>
         <p style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>{winnerName}</p>
         <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>ÚLTIMO EN PIE</p>
+        {iWon && (
+          <div>
+            <button onClick={handleShareWin} disabled={sharingImage} style={{ marginTop: 16, fontSize: 14 }}>
+              {sharingImage ? 'Generando imagen...' : 'COMPARTIR VICTORIA 🏆'}
+            </button>
+            {shareWinFeedback && (
+              <p style={{ fontSize: 13, color: 'var(--snitch-muted)', marginTop: 4 }}>{shareWinFeedback}</p>
+            )}
+          </div>
+        )}
         <button className="snitch-btn-accent" onClick={onExit} style={{ marginTop: 24 }}>
           SALIR
         </button>
@@ -134,7 +183,7 @@ export function MultiplayerGameScreen({
             OBSERVAR
           </button>
           <button
-            onClick={onExit}
+            onClick={handleLeaveGame}
             disabled={isHost}
             title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
           >
@@ -198,7 +247,7 @@ export function MultiplayerGameScreen({
         >
           <span style={{ color: 'var(--snitch-muted)', fontSize: 16 }}>Modo espectador</span>
           <button
-            onClick={onExit}
+            onClick={handleLeaveGame}
             disabled={isHost}
             title={isHost ? 'El host no puede salir mientras la partida siga en curso' : undefined}
           >
