@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createRoom, joinRoom, type JoinRoomError } from '../firebase/rooms';
+import { signOutUser } from '../firebase/auth';
 
 const ERROR_MESSAGES: Record<JoinRoomError, string> = {
   not_found: 'No existe una sala con ese código.',
@@ -9,13 +10,19 @@ const ERROR_MESSAGES: Record<JoinRoomError, string> = {
 
 export function HomeScreen({
   uid,
+  defaultName = '',
+  isAnonymous,
   onEnterRoom,
+  onOpenProfile,
 }: {
   uid: string;
+  defaultName?: string;
+  isAnonymous: boolean;
   onEnterRoom: (roomCode: string) => void;
+  onOpenProfile: () => void;
 }) {
   const [mode, setMode] = useState<'home' | 'join'>('home');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(defaultName);
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -67,17 +74,25 @@ export function HomeScreen({
           placeholder="Tu nombre"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          readOnly={!isAnonymous}
+          title={!isAnonymous ? 'Tu nombre está fijo — cambialo desde tu perfil' : undefined}
           style={{
             width: '100%',
             fontSize: 20,
             fontFamily: 'var(--snitch-font-body)',
             background: 'transparent',
-            color: 'var(--snitch-fg)',
+            color: !isAnonymous ? 'var(--snitch-muted)' : 'var(--snitch-fg)',
             border: '2px solid var(--snitch-fg)',
             padding: 8,
-            marginBottom: 16,
+            marginBottom: 4,
+            boxSizing: 'border-box',
           }}
         />
+        {!isAnonymous && (
+          <p style={{ fontSize: 12, color: 'var(--snitch-muted)', margin: '0 0 12px' }}>
+            Fijo — cambialo desde tu perfil
+          </p>
+        )}
       </div>
 
       {mode === 'home' && (
@@ -119,6 +134,18 @@ export function HomeScreen({
       )}
 
       {error && <p style={{ color: 'var(--snitch-accent)', marginTop: 16 }}>{error}</p>}
+
+      {!isAnonymous && (
+        <button onClick={onOpenProfile} style={{ marginTop: 24, fontSize: 14 }}>
+          PERFIL
+        </button>
+      )}
+
+      <div>
+        <button onClick={() => signOutUser()} style={{ marginTop: 12, fontSize: 13, color: 'var(--snitch-muted)' }}>
+          CERRAR SESIÓN
+        </button>
+      </div>
     </div>
   );
 }

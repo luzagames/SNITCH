@@ -1,10 +1,20 @@
 import { doc, setDoc, updateDoc, getDocs, collection, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 import { db } from './config';
-import { buildInitialSyncedState, applyPendingAction } from './gameSyncLogic';
-import type { PendingAction, SyncedGameState } from './gameSyncLogic';
+import {
+  buildInitialSyncedState,
+  applyPendingAction,
+  applyStatsEvent,
+  finalizeBluffStats,
+  createAchievementTracker,
+  trackAchievementEvent,
+  computeMatchAchievements,
+  diffNewAchievements,
+} from './gameSyncLogic';
+import type { PendingAction, SyncedGameState, MatchStatsAccumulator } from './gameSyncLogic';
 import type { Card } from '../game/types';
+import type { AchievementId } from '../game/achievements';
 
-export type { PendingAction, SyncedGameState, PlayerPublicInfo } from './gameSyncLogic';
+export type { PendingAction, SyncedGameState, PlayerPublicInfo, MatchStatsAccumulator } from './gameSyncLogic';
 
 function gameStateRef(roomCode: string) {
   return doc(db, 'rooms', roomCode, 'gameState', 'current');
@@ -45,8 +55,18 @@ export async function submitAction(roomCode: string, action: PendingAction) {
 
 // SOLO se ejecuta en el navegador del host. Ver gameSyncLogic.ts para la
 // lógica real de resolución (testeada aparte, sin Firestore).
+//
+// Además de resolver cada acción, este es el único lugar que lleva la
+// cuenta de las estadísticas de TODA la partida (quién bluffeó con qué
+// carta, cuántos KILL acertó cada uno, etc.) — vive en la memoria del
+// navegador del host, nunca se escribe en un lugar público, hasta que la
+// partida termina y recién ahí se manda un resumen final por jugador.
 export function startHostReferee(roomCode: string): Unsubscribe {
   let resolving = false;
+  const statsAcc: Record<string, MatchStatsAccumulator> = {};
+  const pendingBluffs: Record<string, string[]> = {};
+  const achievementTracker = createAchievementTracker();
+  const notifiedAchievements: Record<string, Set<AchievementId>> = {};
 
   return onSnapshot(gameStateRef(roomCode), async (snap) => {
     if (!snap.exists()) return;
@@ -61,7 +81,36 @@ export function startHostReferee(roomCode: string): Unsubscribe {
         handsByUid[d.id] = d.data().cards as Card[];
       });
 
-      const { newState, changedHands } = applyPendingAction(gs, handsByUid);
+      const prevAlive: Record<string, boolean> = {};
+      for (const [uid, info] of Object.entries(gs.playersPublic)) prevAlive[uid] = info.alive;
+
+      const { newState, changedHands, statsEvent } = applyPendingAction(gs, handsByUid);
+
+      // Capturamos los bluffs pendientes de la víctima ANTES de que
+      // applyStatsEvent los actualice, para poder detectar "esto justo
+      // cachó un bluff" en el rastreador de logros.
+      const victimPendingBefore = statsEvent.killVictimId
+        ? [...(pendingBluffs[statsEvent.killVictimId] ?? [])]
+        : undefined;
+
+      applyStatsEvent(statsAcc, pendingBluffs, statsEvent);
+      trackAchievementEvent(achievementTracker, statsEvent, prevAlive, newState.playersPublic, victimPendingBefore);
+
+      // Chequeamos logros después de CADA acción, no solo al final: los que
+      // necesitan "ganaste la partida" van a seguir dando false hasta que
+      // winnerId se defina de verdad, así que no hay riesgo de que salten
+      // antes de tiempo. Lo nuevo que aparece acá dispara el popup en vivo.
+      const currentGrants = computeMatchAchievements(achievementTracker, newState, statsAcc);
+      const fresh = diffNewAchievements(notifiedAchievements, currentGrants);
+      if (Object.keys(fresh).length > 0) {
+        newState.liveAchievementEvent = { grants: fresh, eventAt: Date.now() };
+      }
+
+      if (newState.status === 'finished') {
+        finalizeBluffStats(statsAcc, pendingBluffs);
+        newState.finalStats = { ...statsAcc };
+        newState.finalAchievements = currentGrants;
+      }
 
       await setDoc(gameStateRef(roomCode), { ...newState, pendingAction: null } satisfies SyncedGameState);
 

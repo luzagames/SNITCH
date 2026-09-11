@@ -16,6 +16,10 @@ function baseGs(overrides: Partial<SyncedGameState> = {}): SyncedGameState {
     lastAnswers: null,
     pendingAction: null,
     revealedCard: null,
+    dealFlags: {},
+    finalStats: null,
+    finalAchievements: null,
+    liveAchievementEvent: null,
     ...overrides,
   };
 }

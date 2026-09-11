@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee } from '../firebase/gameSync';
 import type { SyncedGameState } from '../firebase/gameSync';
+import { recordMatchStats } from '../firebase/profile';
+import { createStatsAccumulator } from '../firebase/gameSyncLogic';
+import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
 import { Table } from './Table';
 import { KillPicker } from './KillPicker';
 import { AskPicker } from './AskPicker';
@@ -17,11 +20,13 @@ export function MultiplayerGameScreen({
   roomCode,
   uid,
   isHost,
+  isAnonymous,
   onExit,
 }: {
   roomCode: string;
   uid: string;
   isHost: boolean;
+  isAnonymous: boolean;
   onExit: () => void;
 }) {
   const [gs, setGs] = useState<SyncedGameState | null>(null);
@@ -30,6 +35,9 @@ export function MultiplayerGameScreen({
   const [spectating, setSpectating] = useState(false);
   const [flashCard, setFlashCard] = useState<Card | null>(null);
   const lastRevealSeen = useRef<number | null>(null);
+  const lastAchievementEventSeen = useRef<number | null>(null);
+  const statsRecorded = useRef(false);
+  const { current: currentToast, pushAchievements } = useAchievementToastQueue();
 
   useEffect(() => {
     const unsubGs = subscribeToGameState(roomCode, setGs);
@@ -57,6 +65,39 @@ export function MultiplayerGameScreen({
     return () => clearTimeout(timer);
   }, [gs?.revealedCard]);
 
+  // Cuando aparece un liveAchievementEvent NUEVO, y me toca a mí, lo
+  // metemos en la cola de popups — esto es lo que permite que se vean EN
+  // PLENA PARTIDA, no solo al final (los logros que necesitan ganar la
+  // partida van a aparecer recién ahí, porque hasta ese momento son falsos).
+  useEffect(() => {
+    const event = gs?.liveAchievementEvent;
+    if (!event) return;
+    if (event.eventAt === lastAchievementEventSeen.current) return;
+    lastAchievementEventSeen.current = event.eventAt;
+
+    const mine = event.grants[uid];
+    if (mine) pushAchievements(mine);
+  }, [gs?.liveAchievementEvent, uid, pushAchievements]);
+
+  // Registrar el resultado (ganó/perdió) una sola vez, y solo si no es
+  // anónimo. Cada navegador registra ÚNICAMENTE su propio resultado, nunca
+  // el de otro jugador.
+  useEffect(() => {
+    if (!gs || gs.status !== 'finished' || isAnonymous || statsRecorded.current) return;
+    statsRecorded.current = true;
+    const myStats = gs.finalStats?.[uid] ?? createStatsAccumulator();
+    const myAchievements = gs.finalAchievements?.[uid] ?? [];
+    recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements)
+      .then((newlyUnlockedLifetime) => {
+        // Los de por vida (rachas, totales) recién se saben acá, después
+        // de escribir el perfil — se muestran con el mismo popup.
+        pushAchievements(newlyUnlockedLifetime);
+      })
+      .catch(() => {
+        statsRecorded.current = false; // si falló, permitir reintentar en el próximo render
+      });
+  }, [gs, uid, isAnonymous, pushAchievements]);
+
   if (!gs) {
     return <LoadingScreen message="Cargando partida..." />;
   }
@@ -70,6 +111,7 @@ export function MultiplayerGameScreen({
     const winnerName = gs.winnerId ? gs.playersPublic[gs.winnerId]?.name : '???';
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        {currentToast && <AchievementToast achievementId={currentToast} />}
         <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>GANADOR</p>
         <p style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>{winnerName}</p>
         <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>ÚLTIMO EN PIE</p>
@@ -85,6 +127,7 @@ export function MultiplayerGameScreen({
   if (iAmEliminated && !spectating) {
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
+        {currentToast && <AchievementToast achievementId={currentToast} />}
         <p style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>Fuiste eliminado.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 280, margin: '24px auto' }}>
           <button className="snitch-btn-accent" onClick={() => setSpectating(true)}>
@@ -140,6 +183,7 @@ export function MultiplayerGameScreen({
 
   return (
     <div className="snitch-root" style={{ padding: 'clamp(12px, 4vw, 24px)' }}>
+      {currentToast && <AchievementToast achievementId={currentToast} />}
       {iAmEliminated && spectating && (
         <div
           style={{
