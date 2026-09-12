@@ -3,6 +3,7 @@ import { cardLabel } from '../game/display';
 import { questionLabel } from '../game/askQuestions';
 import type { AskQuestion, Card, GameState } from '../game/types';
 import { cardId } from '../game/types';
+import type { SkillRating } from '../game/rank';
 import type { AchievementId } from '../game/achievements';
 
 export interface PlayerPublicInfo {
@@ -10,6 +11,10 @@ export interface PlayerPublicInfo {
   lives: number;
   alive: boolean;
   handCount: number;
+  // Rating OpenSkill al momento de ARRANCAR esta partida (foto fija, no
+  // se actualiza durante la partida) — se usa tanto para calcular el
+  // cambio de rating al final como para el distintivo visible en la mesa.
+  skill: SkillRating;
 }
 
 export type PendingAction =
@@ -28,6 +33,7 @@ export interface RevealedCard {
 export interface DealFlags {
   hadTriple: boolean; // las 3 cartas iniciales tenían el mismo número
   hadTwoJokers: boolean; // te tocaron los 2 Jokers
+  hadRepeatedValue: boolean; // al menos 2 de las 3 cartas iniciales compartían número
 }
 
 export interface LiveAchievementEvent {
@@ -51,6 +57,10 @@ export interface SyncedGameState {
   pendingAction: PendingAction | null;
   revealedCard: RevealedCard | null;
   dealFlags: Record<string, DealFlags>;
+  // Se va llenando a medida que la partida avanza — el primero acá fue el
+  // primero eliminado. Se usa al final para reconstruir el orden de
+  // llegada completo (para el sistema de rating).
+  eliminationOrder: string[];
   isAnonymous: Record<string, boolean>;
   // Solo se completan UNA VEZ, cuando la partida termina. Cada cliente lee
   // únicamente su propia entrada para actualizar su perfil.
@@ -157,7 +167,7 @@ export function finalizeBluffStats(
 }
 
 // Arma el SyncedGameState inicial (llamado al arrancar la partida).
-export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean }[]): {
+export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating }[]): {
   state: Omit<SyncedGameState, 'pendingAction'>;
   hands: Record<string, Card[]>;
 } {
@@ -166,15 +176,20 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
   const hands: Record<string, Card[]> = {};
   const dealFlags: Record<string, DealFlags> = {};
   const isAnonymous: Record<string, boolean> = {};
-  for (const p of players) isAnonymous[p.id] = p.isAnonymous;
+  const skillById: Record<string, SkillRating> = {};
+  for (const p of players) {
+    isAnonymous[p.id] = p.isAnonymous;
+    skillById[p.id] = p.skill;
+  }
   for (const p of engineState.players) {
-    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length };
+    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length, skill: skillById[p.id] };
     hands[p.id] = p.hand;
 
     const jokerCount = p.hand.filter((c) => c.kind === 'joker').length;
     const standardRanks = p.hand.filter((c) => c.kind === 'standard').map((c) => c.rank);
     const hadTriple = p.hand.length === 3 && standardRanks.length === 3 && new Set(standardRanks).size === 1;
-    dealFlags[p.id] = { hadTriple, hadTwoJokers: jokerCount >= 2 };
+    const hadRepeatedValue = new Set(standardRanks).size < standardRanks.length;
+    dealFlags[p.id] = { hadTriple, hadTwoJokers: jokerCount >= 2, hadRepeatedValue };
   }
   return {
     state: {
@@ -188,6 +203,7 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
       lastAnswers: null,
       revealedCard: null,
       dealFlags,
+      eliminationOrder: [],
       isAnonymous,
       finalStats: null,
       finalAchievements: null,
@@ -212,6 +228,7 @@ export function applyPendingAction(
   const engineState: GameState = {
     status: 'playing',
     currentTurnIndex: gs.currentTurnIndex,
+    eliminationOrder: [...gs.eliminationOrder],
     history: [],
     players: gs.turnOrder.map((uid) => ({
       id: uid,
@@ -262,7 +279,9 @@ export function applyPendingAction(
       message = `Nadie tenía ${cardLabel(action.card)}. ${actorName} perdió 1 corazón.`;
     }
   } else if (action.type === 'ask') {
-    const result = resolveAsk(engineState, action.actorId, action.question);
+    const hadRepeatedValueAtDeal: Record<string, boolean> = {};
+    for (const [pid, flags] of Object.entries(gs.dealFlags)) hadRepeatedValueAtDeal[pid] = flags.hadRepeatedValue;
+    const result = resolveAsk(engineState, action.actorId, action.question, hadRepeatedValueAtDeal);
     const actorName = gs.playersPublic[action.actorId].name;
     lastAnswers = result.answers;
     statsEvent = { actorId: action.actorId, type: 'ask' };
@@ -279,7 +298,7 @@ export function applyPendingAction(
   const playersPublic: Record<string, PlayerPublicInfo> = {};
   const changedHands: Record<string, Card[]> = {};
   for (const p of engineState.players) {
-    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length };
+    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length, skill: gs.playersPublic[p.id].skill };
     const before = handsByUid[p.id] ?? [];
     if (before.length !== p.hand.length) {
       changedHands[p.id] = p.hand;
@@ -298,6 +317,7 @@ export function applyPendingAction(
       lastAnswers,
       revealedCard,
       dealFlags: gs.dealFlags,
+      eliminationOrder: engineState.eliminationOrder,
       isAnonymous: gs.isAnonymous,
       finalStats: gs.finalStats,
       finalAchievements: gs.finalAchievements,

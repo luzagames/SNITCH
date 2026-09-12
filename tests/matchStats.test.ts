@@ -136,15 +136,15 @@ import type { Card } from '../src/game/types';
     turnOrder: ['p1', 'p2'],
     currentTurnIndex: 0,
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
-      p2: { name: 'Juan', lives: 1, alive: true, handCount: 1 }, // a una vida de perder
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 1, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } }, // a una vida de perder
     },
     winnerId: null,
     lastMessage: '',
     lastAnswers: null,
     pendingAction: null,
     revealedCard: null,
-    dealFlags: {},
+    dealFlags: {}, eliminationOrder: [],
     isAnonymous: { p1: false, p2: false },
     finalStats: null,
     finalAchievements: null,

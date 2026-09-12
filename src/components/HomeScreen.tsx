@@ -15,6 +15,7 @@ export function HomeScreen({
   onEnterRoom,
   onOpenProfile,
   onOpenRules,
+  onOpenRanking,
 }: {
   uid: string;
   defaultName?: string;
@@ -22,6 +23,7 @@ export function HomeScreen({
   onEnterRoom: (roomCode: string) => void;
   onOpenProfile: () => void;
   onOpenRules: () => void;
+  onOpenRanking: () => void;
 }) {
   const [mode, setMode] = useState<'home' | 'join'>('home');
   const [name, setName] = useState(defaultName);
@@ -164,6 +166,14 @@ export function HomeScreen({
           CÓMO SE JUEGA
         </button>
       </div>
+
+      {!isAnonymous && (
+        <div>
+          <button onClick={onOpenRanking} style={{ marginTop: 12, fontSize: 13 }}>
+            RANKING
+          </button>
+        </div>
+      )}
 
       <div>
         <button onClick={() => signOutUser()} style={{ marginTop: 12, fontSize: 13, color: 'var(--snitch-muted)' }}>

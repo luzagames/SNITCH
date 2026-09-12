@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { subscribeToRoom, shareInviteLink, leaveRoom } from '../firebase/rooms';
 import { useHostPresence } from '../hooks/useHostPresence';
 import { dealAndStartGame } from '../firebase/gameSync';
+import { getProfile } from '../firebase/profile';
+import { DEFAULT_SKILL } from '../game/rank';
 
 export function Lobby({
   roomCode,
@@ -16,6 +18,7 @@ export function Lobby({
 }) {
   const { hostId, isHost, players, kicked } = useHostPresence(roomCode, uid);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   async function handleShare() {
     const me = players.find((p) => p.id === uid);
@@ -29,6 +32,28 @@ export function Lobby({
   async function handleLeaveLobby() {
     await leaveRoom(roomCode, uid).catch(() => {});
     onExit();
+  }
+
+  // Antes de repartir, buscamos el rating OpenSkill REAL de cada jugador
+  // no-anónimo (los anónimos no tienen perfil, así que usan el rating
+  // inicial como relleno neutro solo para el cálculo de los DEMÁS — a
+  // ellos mismos igual nunca se les guarda ningún cambio ni se les
+  // muestra el distintivo, ver PlayerSeat.tsx).
+  async function handleStartGame() {
+    setStarting(true);
+    try {
+      const playersWithSkill = await Promise.all(
+        players.map(async (p) => {
+          if (p.isAnonymous) return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill: DEFAULT_SKILL };
+          const profile = await getProfile(p.id).catch(() => null);
+          const skill = profile ? { mu: profile.mu, sigma: profile.sigma } : DEFAULT_SKILL;
+          return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill };
+        })
+      );
+      await dealAndStartGame(roomCode, playersWithSkill);
+    } finally {
+      setStarting(false);
+    }
   }
 
   useEffect(() => {
@@ -90,11 +115,11 @@ export function Lobby({
       {isHost ? (
         <button
           className="snitch-btn-accent"
-          disabled={!canStart}
-          onClick={() => dealAndStartGame(roomCode, players.map((p) => ({ id: p.id, name: p.name, isAnonymous: p.isAnonymous })))}
+          disabled={!canStart || starting}
+          onClick={handleStartGame}
           style={{ marginTop: 24 }}
         >
-          EMPEZAR PARTIDA
+          {starting ? 'Repartiendo...' : 'EMPEZAR PARTIDA'}
         </button>
       ) : (
         <p style={{ marginTop: 24, color: 'var(--snitch-muted)' }}>Esperando a que el host arranque...</p>

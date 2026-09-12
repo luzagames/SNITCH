@@ -9,12 +9,13 @@ import { LoginChoiceScreen } from './LoginChoiceScreen';
 import { ChooseUsernameScreen } from './ChooseUsernameScreen';
 import { ProfileScreen } from './ProfileScreen';
 import { RulesScreen } from './RulesScreen';
+import { RankingScreen } from './RankingScreen';
 import { Lobby } from './Lobby';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
-type Screen = 'home' | 'profile' | 'rules' | 'lobby' | 'game';
+type Screen = 'home' | 'profile' | 'rules' | 'ranking' | 'lobby' | 'game';
 
 export function SnitchApp() {
   const { user, checked, error } = useAuthState();
@@ -122,12 +123,17 @@ export function SnitchApp() {
         onEnterRoom={enterRoom}
         onOpenProfile={() => setScreen('profile')}
         onOpenRules={() => setScreen('rules')}
+        onOpenRanking={() => setScreen('ranking')}
       />
     );
   }
 
   if (screen === 'rules') {
     return <RulesScreen onBack={() => setScreen('home')} />;
+  }
+
+  if (screen === 'ranking') {
+    return <RankingScreen uid={uid} onBack={() => setScreen('home')} />;
   }
 
   if (screen === 'profile') {

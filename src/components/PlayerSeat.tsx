@@ -2,6 +2,8 @@ import { Avatar } from './Avatar';
 import { Hearts } from './Hearts';
 import { CardSlot } from './CardSlot';
 import type { CardSlotState } from './CardSlot';
+import { RankGemIcon } from './RankGemIcon';
+import type { Tier } from '../game/rank';
 
 export interface PlayerSeatData {
   id: string;
@@ -12,11 +14,14 @@ export interface PlayerSeatData {
   cardStates: CardSlotState[]; // 3 estados, uno por carta en mano
   isYou: boolean;
   isCurrentTurn: boolean;
+  // null para jugadores anónimos (nunca tienen un rating real guardado).
+  tier: Tier | null;
 }
 
 export function PlayerSeat({ player, featured = false }: { player: PlayerSeatData; featured?: boolean }) {
   const avatarSize = featured ? 140 : 72;
   const nameFontSize = featured ? 28 : 20;
+  const gemSize = featured ? 22 : 16;
   const dimmed = !player.alive || !player.connected;
 
   return (
@@ -51,7 +56,8 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
         </div>
       )}
 
-      <span style={{ fontSize: nameFontSize }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: nameFontSize }} title={player.tier?.name}>
+        {player.tier !== null && <RankGemIcon light={player.tier.light} dark={player.tier.dark} size={gemSize} />}
         {player.name}
         {player.isYou ? ' (vos)' : ''}
       </span>

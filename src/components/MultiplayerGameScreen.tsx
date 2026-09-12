@@ -6,6 +6,7 @@ import { useHostPresence } from '../hooks/useHostPresence';
 import { isHostStale } from '../hooks/hostPresenceLogic';
 import { recordMatchStats } from '../firebase/profile';
 import { createStatsAccumulator } from '../firebase/gameSyncLogic';
+import { computeFinalPlacement, getTier, skillOrdinal } from '../game/rank';
 import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
 import { VictoryCard } from './VictoryCard';
 import { captureAndShareImage } from '../utils/shareImage';
@@ -182,11 +183,14 @@ export function MultiplayerGameScreen({
   // anónimo. Cada navegador registra ÚNICAMENTE su propio resultado, nunca
   // el de otro jugador.
   useEffect(() => {
-    if (!gs || gs.status !== 'finished' || isAnonymous || statsRecorded.current) return;
+    if (!gs || gs.status !== 'finished' || !gs.winnerId || isAnonymous || statsRecorded.current) return;
     statsRecorded.current = true;
     const myStats = gs.finalStats?.[uid] ?? createStatsAccumulator();
     const myAchievements = gs.finalAchievements?.[uid] ?? [];
-    recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements)
+    const placement = computeFinalPlacement(gs.winnerId, gs.eliminationOrder);
+    const allSkillsInPlacementOrder = placement.map((id) => gs.playersPublic[id].skill);
+    const myPlacementIndex = placement.indexOf(uid);
+    recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements, allSkillsInPlacementOrder, myPlacementIndex)
       .then((newlyUnlockedLifetime) => {
         // Los de por vida (rachas, totales) recién se saben acá, después
         // de escribir el perfil — se muestran con el mismo popup.
@@ -319,6 +323,9 @@ export function MultiplayerGameScreen({
       lives: pub.lives,
       isYou,
       isCurrentTurn: playerId === gs.turnOrder[gs.currentTurnIndex],
+      // Los anónimos no tienen un rating real (nunca se les guarda nada),
+      // así que no les mostramos el distintivo.
+      tier: gs.isAnonymous[playerId] ? null : getTier(skillOrdinal(pub.skill)),
       cardStates: isYou
         ? myHand.map((card) => ({ kind: 'faceup' as const, card }))
         : Array.from({ length: pub.handCount }, () => ({ kind: 'hidden' as const })),

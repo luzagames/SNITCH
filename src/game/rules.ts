@@ -43,6 +43,7 @@ export function createGame(playerNames: { id: string; name: string }[]): GameSta
     status: 'playing',
     players,
     currentTurnIndex: startIndex,
+    eliminationOrder: [],
     history: [],
   };
 }
@@ -77,6 +78,7 @@ function checkAndEliminate(state: GameState, player: Player): void {
   if (!player.alive) return;
   if (player.lives <= 0 || player.hand.length === 0) {
     player.alive = false;
+    state.eliminationOrder.push(player.id);
     state.history.push({ type: 'eliminated', playerId: player.id });
   }
 }
@@ -205,7 +207,7 @@ export function resolveKill(state: GameState, killerId: string, targetCard: Card
 // Evalúa la pregunta contra la mano de cada jugador vivo EXCEPTO quien
 // pregunta. Si nadie cumple, el que preguntó pierde 1 vida.
 
-function matchesQuestion(hand: Card[], q: AskQuestion): boolean {
+function matchesQuestion(hand: Card[], q: AskQuestion, hadRepeatedValueAtDeal?: boolean): boolean {
   switch (q.id) {
     case 'GREATER_THAN':
       return hand.some((c) => c.kind === 'standard' && c.rank > (q.value as number));
@@ -213,13 +215,28 @@ function matchesQuestion(hand: Card[], q: AskQuestion): boolean {
       return hand.some((c) => c.kind === 'standard' && c.rank < (q.value as number));
     case 'BETWEEN':
       return hand.some((c) => c.kind === 'standard' && c.rank >= (q.min as number) && c.rank <= (q.max as number));
+    case 'BETWEEN_OF_SUIT':
+      return hand.some(
+        (c) =>
+          c.kind === 'standard' &&
+          c.suit === q.suit &&
+          c.rank >= (q.min as number) &&
+          c.rank <= (q.max as number)
+      );
     case 'OF_SUIT':
       return hand.some((c) => c.kind === 'standard' && c.suit === q.suit);
     case 'OF_VALUE':
       return hand.some((c) => c.kind === 'standard' && c.rank === (q.value as number));
     case 'REPEATED_VALUE_IN_HAND': {
-      // ¿Tiene dos o más cartas del mismo número en su propia mano? El
-      // Joker no tiene número, así que no participa de esta cuenta.
+      // "Tiene O TUVO": una mano nunca gana cartas, solo las pierde — así
+      // que si tenía un valor repetido al repartir, matemáticamente sigue
+      // siendo cierto que "tuvo" uno, aunque después le hayan matado una
+      // de las dos. Por eso, si nos pasan ese dato del reparto, alcanza
+      // con mirarlo directo (es estrictamente más informativo que mirar
+      // la mano actual). Si no nos lo pasan (por ejemplo, en el modo
+      // hot-seat local sin este seguimiento), caemos al chequeo viejo
+      // sobre la mano actual, como antes.
+      if (hadRepeatedValueAtDeal !== undefined) return hadRepeatedValueAtDeal;
       const seen = new Set<number>();
       for (const c of hand) {
         if (c.kind !== 'standard') continue;
@@ -233,7 +250,12 @@ function matchesQuestion(hand: Card[], q: AskQuestion): boolean {
   }
 }
 
-export function resolveAsk(state: GameState, askerId: string, question: AskQuestion): AskResult {
+export function resolveAsk(
+  state: GameState,
+  askerId: string,
+  question: AskQuestion,
+  hadRepeatedValueAtDeal?: Record<string, boolean>
+): AskResult {
   const asker = state.players.find((p) => p.id === askerId);
   if (!asker) throw new Error('Jugador no encontrado');
   if (currentPlayer(state).id !== askerId) {
@@ -243,7 +265,7 @@ export function resolveAsk(state: GameState, askerId: string, question: AskQuest
 
   const answers = state.players
     .filter((p) => p.alive && p.id !== askerId)
-    .map((p) => ({ playerId: p.id, matches: matchesQuestion(p.hand, question) }));
+    .map((p) => ({ playerId: p.id, matches: matchesQuestion(p.hand, question, hadRepeatedValueAtDeal?.[p.id]) }));
 
   const anyMatch = answers.some((a) => a.matches);
 
@@ -293,6 +315,7 @@ export function leaveGame(state: GameState, playerId: string): void {
   player.hand = [];
   player.alive = false;
   player.isSpectator = false; // se va, no queda observando
+  state.eliminationOrder.push(playerId);
   state.history.push({ type: 'eliminated', playerId });
 
   if (!checkVictory(state) && wasCurrentTurn) {

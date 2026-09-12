@@ -19,6 +19,7 @@ export function TableDemo() {
     name: p.name,
     alive: p.alive,
     connected: true,
+    tier: null,
     lives: p.lives,
     isYou: p.id === you.id,
     isCurrentTurn: p.id === current.id,

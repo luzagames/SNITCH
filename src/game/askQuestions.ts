@@ -45,6 +45,14 @@ export function validateQuestion(q: AskQuestion): void {
         throw new Error('En BETWEEN, min no puede ser mayor que max');
       }
       break;
+    case 'BETWEEN_OF_SUIT':
+      if (q.min === undefined || q.max === undefined || q.suit === undefined) {
+        throw new Error('La pregunta BETWEEN_OF_SUIT requiere min, max y palo');
+      }
+      if (q.min > q.max) {
+        throw new Error('En BETWEEN_OF_SUIT, min no puede ser mayor que max');
+      }
+      break;
     case 'OF_SUIT':
       if (q.suit === undefined) {
         throw new Error('La pregunta OF_SUIT requiere un palo (suit)');
@@ -68,12 +76,14 @@ export function questionLabel(q: AskQuestion): string {
       return `¿Alguien tiene una carta menor a ${RANK_LABELS[q.value as Rank]}?`;
     case 'BETWEEN':
       return `¿Alguien tiene una carta entre ${RANK_LABELS[q.min as Rank]} y ${RANK_LABELS[q.max as Rank]}?`;
+    case 'BETWEEN_OF_SUIT':
+      return `¿Alguien tiene una carta de ${SUIT_LABELS[q.suit as Suit]} entre ${RANK_LABELS[q.min as Rank]} y ${RANK_LABELS[q.max as Rank]}?`;
     case 'OF_SUIT':
       return `¿Alguien tiene una carta de ${SUIT_LABELS[q.suit as Suit]}?`;
     case 'OF_VALUE':
       return `¿Alguien tiene una carta de valor ${RANK_LABELS[q.value as Rank]}?`;
     case 'REPEATED_VALUE_IN_HAND':
-      return '¿Alguien tiene un valor repetido en su mano?';
+      return '¿Alguien tiene o tuvo un valor repetido en su mano?';
     default:
       return 'Pregunta desconocida';
   }

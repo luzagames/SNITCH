@@ -17,6 +17,7 @@ import { getProfile } from './profile';
 import { subscribeToPlayers, HOST_STALE_THRESHOLD_MS } from './rooms';
 import type { RoomPlayer } from './rooms';
 import { isHostStale } from '../hooks/hostPresenceLogic';
+import type { SkillRating } from '../game/rank';
 
 export type { PendingAction, SyncedGameState, PlayerPublicInfo, MatchStatsAccumulator } from './gameSyncLogic';
 
@@ -31,7 +32,7 @@ function handRef(roomCode: string, uid: string) {
 }
 
 // Se llama UNA vez, del lado del host, cuando arranca la partida.
-export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean }[]) {
+export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating }[]) {
   const { state, hands } = buildInitialSyncedState(players);
 
   for (const [uid, cards] of Object.entries(hands)) {

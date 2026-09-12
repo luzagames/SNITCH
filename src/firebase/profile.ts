@@ -1,7 +1,9 @@
-import { doc, getDoc, setDoc, updateDoc, increment, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, increment, runTransaction, collection, query, orderBy, limit } from 'firebase/firestore';
 import { db } from './config';
 import type { MatchStatsAccumulator } from './gameSyncLogic';
 import type { AchievementId } from '../game/achievements';
+import { DEFAULT_SKILL, skillOrdinal, updateSkillRatings } from '../game/rank';
+import type { SkillRating } from '../game/rank';
 
 export interface UserProfile {
   username: string;
@@ -18,6 +20,17 @@ export interface UserProfile {
   askCount: number;
   passCount: number;
   achievements: AchievementId[];
+  // Firestore no puede ordenar un ranking por el LARGO de un array
+  // (achievements.length) — por eso mantenemos este número aparte, en
+  // sincro con achievements.length en cada escritura.
+  achievementCount: number;
+  // Rating estilo OpenSkill (Weng-Lin) — reemplaza al viejo sistema de
+  // niveles/XP. mu/sigma son los que se usan para CALCULAR; skillRating
+  // es el ordinal (mu - 3*sigma) ya calculado, guardado aparte porque
+  // Firestore no puede ordenar un ranking por una cuenta hecha al vuelo.
+  mu: number;
+  sigma: number;
+  skillRating: number;
 }
 
 const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
@@ -34,6 +47,10 @@ const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
   askCount: 0,
   passCount: 0,
   achievements: [],
+  achievementCount: 0,
+  mu: DEFAULT_SKILL.mu,
+  sigma: DEFAULT_SKILL.sigma,
+  skillRating: skillOrdinal(DEFAULT_SKILL),
 };
 
 function profileRef(uid: string) {
@@ -61,10 +78,44 @@ export async function ensureProfile(
 export async function getProfile(uid: string): Promise<UserProfile | null> {
   const snap = await getDoc(profileRef(uid));
   if (!snap.exists()) return null;
+  return fillDefaults(snap.data() as Partial<UserProfile>);
+}
+
+// Igual que getProfile, pero además: si el documento en Firestore le
+// faltan campos nuevos (cualquier perfil de antes de que existiera un
+// campo directamente no lo tiene guardado, y Firestore EXCLUYE del
+// ranking a los documentos que no tienen el campo por el que se está
+// ordenando), lo reescribe reparado. Solo se puede usar para el PROPIO
+// perfil (uid == vos mismo) — las reglas de seguridad no dejan escribir
+// el perfil de otro, así que este arreglo no sirve para "reparar"
+// perfiles ajenos, cada uno lo hace solo al entrar al suyo.
+export async function getProfileAndRepair(uid: string): Promise<UserProfile | null> {
+  const ref = profileRef(uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+
   const raw = snap.data() as Partial<UserProfile>;
+  const repaired = fillDefaults(raw);
+
+  const missingSomething = raw.achievementCount === undefined || raw.skillRating === undefined;
+  if (missingSomething) {
+    await setDoc(ref, repaired).catch(() => {
+      // Si por lo que sea no se puede escribir, no es grave — devolvemos
+      // igual los valores reparados EN MEMORIA, así al menos esta
+      // pantalla se ve bien ahora; el ranking se va a autoreparar solo en
+      // la próxima partida, como con cualquier campo viejo faltante.
+    });
+  }
+
+  return repaired;
+}
+
+function fillDefaults(raw: Partial<UserProfile>): UserProfile {
   // Rellena cualquier campo faltante (perfiles viejos) o corrupto (NaN de
   // una versión anterior con el bug) con su valor por defecto, sin
   // necesidad de esperar a la próxima partida para que se vea bien.
+  const mu = raw.mu !== undefined ? numOr0(raw.mu) : DEFAULT_SKILL.mu;
+  const sigma = raw.sigma !== undefined ? numOr0(raw.sigma) : DEFAULT_SKILL.sigma;
   return {
     username: raw.username ?? 'Jugador',
     gamesPlayed: numOr0(raw.gamesPlayed),
@@ -80,6 +131,10 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
     askCount: numOr0(raw.askCount),
     passCount: numOr0(raw.passCount),
     achievements: raw.achievements ?? [],
+    achievementCount: raw.achievementCount !== undefined ? numOr0(raw.achievementCount) : (raw.achievements?.length ?? 0),
+    mu,
+    sigma,
+    skillRating: raw.skillRating !== undefined ? numOr0(raw.skillRating) : skillOrdinal({ mu, sigma }),
   };
 }
 
@@ -108,18 +163,30 @@ function computeLifetimeAchievements(updated: UserProfile): AchievementId[] {
   return unlocked;
 }
 
-// Registra el resultado + todas las estadísticas + los logros de una
-// partida terminada. Solo se llama para jugadores NO anónimos. Usa una
-// transacción porque tanto la racha de victorias como los logros de por
-// vida necesitan leer el valor anterior antes de decidir el nuevo estado.
+// Registra el resultado + todas las estadísticas + los logros + el nuevo
+// rating de una partida terminada. Solo se llama para jugadores NO
+// anónimos. Usa una transacción porque tanto la racha de victorias como
+// los logros de por vida necesitan leer el valor anterior antes de
+// decidir el nuevo estado.
+//
+// allSkillsInPlacementOrder son los mu/sigma de TODOS los participantes
+// de esta partida, en el orden real de llegada (1ro a último), tomados
+// como FOTO FIJA al momento de arrancar — no el rating actual de cada
+// uno, que puede haber cambiado mientras tanto. myPlacementIndex es la
+// posición de ESTE jugador dentro de esa lista (0 = ganador).
 export async function recordMatchStats(
   uid: string,
   won: boolean,
   stats: MatchStatsAccumulator,
-  matchAchievements: AchievementId[]
+  matchAchievements: AchievementId[],
+  allSkillsInPlacementOrder: SkillRating[],
+  myPlacementIndex: number
 ): Promise<AchievementId[]> {
   const ref = profileRef(uid);
   let newlyUnlocked: AchievementId[] = [];
+
+  const updatedSkills = updateSkillRatings(allSkillsInPlacementOrder);
+  const myNewSkill = updatedSkills[myPlacementIndex];
 
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
@@ -144,6 +211,9 @@ export async function recordMatchStats(
       askCount: numOr0(prev.askCount) + stats.askCount,
       passCount: numOr0(prev.passCount) + stats.passCount,
       achievements: prev.achievements ?? [],
+      mu: myNewSkill.mu,
+      sigma: myNewSkill.sigma,
+      skillRating: skillOrdinal(myNewSkill),
     };
 
     const lifetimeUnlocked = computeLifetimeAchievements(updated);
@@ -154,6 +224,7 @@ export async function recordMatchStats(
     const merged = new Set(updated.achievements);
     for (const id of allCandidates) merged.add(id);
     updated.achievements = [...merged];
+    updated.achievementCount = updated.achievements.length;
 
     tx.set(ref, updated);
   });
@@ -173,4 +244,39 @@ export async function recordGameResult(uid: string, won: boolean): Promise<void>
     },
     { merge: true }
   );
+}
+
+// ------------------------------------------------------------------
+// RANKING
+// ------------------------------------------------------------------
+
+export type LeaderboardCategory = 'wins' | 'killHits' | 'successfulBluffs' | 'achievementCount' | 'skillRating';
+
+export const LEADERBOARD_CATEGORIES: { id: LeaderboardCategory; label: string }[] = [
+  { id: 'wins', label: 'Más victorias' },
+  { id: 'killHits', label: 'Más KILLs acertados' },
+  { id: 'successfulBluffs', label: 'Más bluffs exitosos' },
+  { id: 'achievementCount', label: 'Más logros' },
+  { id: 'skillRating', label: 'Mejor rango' },
+];
+
+export interface LeaderboardEntry {
+  uid: string;
+  username: string;
+  value: number;
+}
+
+// Los jugadores anónimos nunca tienen perfil en /users, así que quedan
+// afuera del ranking automáticamente — no hace falta filtrarlos a mano.
+export async function getLeaderboard(category: LeaderboardCategory, count: number): Promise<LeaderboardEntry[]> {
+  const q = query(collection(db, 'users'), orderBy(category, 'desc'), limit(count));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data() as Partial<UserProfile>;
+    return {
+      uid: d.id,
+      username: data.username ?? 'Jugador',
+      value: numOr0(data[category]),
+    };
+  });
 }

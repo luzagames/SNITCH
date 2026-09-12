@@ -9,15 +9,15 @@ function baseGs(overrides: Partial<SyncedGameState> = {}): SyncedGameState {
     turnOrder: ['p1', 'p2'],
     currentTurnIndex: 0,
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 3 },
-      p2: { name: 'Juan', lives: 4, alive: true, handCount: 3 },
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 3, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 3, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     winnerId: null,
     lastMessage: '',
     lastAnswers: null,
     pendingAction: null,
     revealedCard: null,
-    dealFlags: {},
+    dealFlags: {}, eliminationOrder: [],
     isAnonymous: { p1: false, p2: false },
     finalStats: null,
     finalAchievements: null,
@@ -40,8 +40,8 @@ function assert(cond: boolean, msg: string) {
   };
   const gs = baseGs({
     playersPublic: {
-      p1: { name: 'Lolo', lives: 2, alive: true, handCount: 3 }, // arranca con 2 de 4
-      p2: { name: 'Juan', lives: 4, alive: true, handCount: 3 },
+      p1: { name: 'Lolo', lives: 2, alive: true, handCount: 3, skill: { mu: 25, sigma: 8.333333333333334 } }, // arranca con 2 de 4
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 3, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     pendingAction: { type: 'kill', actorId: 'p1', card: target },
   });
@@ -125,8 +125,8 @@ function assert(cond: boolean, msg: string) {
   };
   const gs = baseGs({
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
-      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1 },
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     pendingAction: { type: 'ask', actorId: 'p1', question: { id: 'OF_VALUE', value: 13 } },
   });
@@ -157,8 +157,8 @@ function assert(cond: boolean, msg: string) {
   const hands = { p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card], p2: [{ kind: 'standard', suit: 'clubs', rank: 2 } as Card] };
   const gs = baseGs({
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
-      p2: { name: 'Juan', lives: 1, alive: true, handCount: 1 },
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 1, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     currentTurnIndex: 1,
     pendingAction: { type: 'kill', actorId: 'p2', card: { kind: 'standard', suit: 'hearts', rank: 13 } },
@@ -168,6 +168,33 @@ function assert(cond: boolean, msg: string) {
   assert(newState.playersPublic.p2.alive === false, 'Victoria: p2 queda eliminado al llegar a 0 vidas');
   assert(newState.status === 'finished', 'Victoria: el estado pasa a finished');
   assert(newState.winnerId === 'p1', 'Victoria: gana el único jugador vivo');
+}
+
+// --- Escenario 6b: el KILL que GANA la partida (por cartas, no por vidas)
+// NO debe setear revealedCard — así no queda ningún flash que se pueda
+// filtrar a la revancha siguiente. El mensaje de texto sí cuenta qué pasó. ---
+{
+  const target: Card = { kind: 'standard', suit: 'diamonds', rank: 10 };
+  const hands = {
+    p1: [{ kind: 'standard', suit: 'spades', rank: 1 } as Card],
+    p2: [target], // esta es la ÚLTIMA carta de p2
+  };
+  const gs = baseGs({
+    playersPublic: {
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+    },
+    pendingAction: { type: 'kill', actorId: 'p1', card: target },
+  });
+  const { newState } = applyPendingAction(gs, hands);
+
+  assert(newState.status === 'finished', 'KILL ganador: la partida termina (p2 se quedó sin cartas)');
+  assert(newState.winnerId === 'p1', 'KILL ganador: gana p1');
+  assert(newState.revealedCard === null, 'KILL ganador: NO hay flash visual, aunque sí fue un acierto');
+  assert(
+    newState.lastMessage.includes('10♦'),
+    'KILL ganador: el mensaje de texto sigue contando qué pasó, aunque no haya flash'
+  );
 }
 
 // --- Escenario 7: Joker — killer tiene uno, PERO otro jugador también
@@ -180,8 +207,8 @@ function assert(cond: boolean, msg: string) {
   };
   const gs = baseGs({
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 2 },
-      p2: { name: 'Juan', lives: 4, alive: true, handCount: 2 },
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 2, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 2, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     pendingAction: { type: 'kill', actorId: 'p1', card: { kind: 'joker' } },
   });
@@ -202,8 +229,8 @@ function assert(cond: boolean, msg: string) {
   };
   const gs = baseGs({
     playersPublic: {
-      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1 },
-      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1 },
+      p1: { name: 'Lolo', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
+      p2: { name: 'Juan', lives: 4, alive: true, handCount: 1, skill: { mu: 25, sigma: 8.333333333333334 } },
     },
     pendingAction: { type: 'kill', actorId: 'p1', card: { kind: 'joker' } },
   });

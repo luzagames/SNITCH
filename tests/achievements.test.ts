@@ -16,7 +16,7 @@ function assert(cond: boolean, msg: string) {
 function pub(overrides: Partial<Record<string, Partial<PlayerPublicInfo>>>, ids: string[]): Record<string, PlayerPublicInfo> {
   const base: Record<string, PlayerPublicInfo> = {};
   for (const id of ids) {
-    base[id] = { name: id, lives: 4, alive: true, handCount: 3, ...(overrides[id] ?? {}) };
+    base[id] = { name: id, lives: 4, alive: true, handCount: 3, skill: { mu: 25, sigma: 8.333333333333334 }, ...(overrides[id] ?? {}) };
   }
   return base;
 }
@@ -37,7 +37,7 @@ function finalState(
   const flags: Record<string, DealFlags> = {};
   const isAnonymous: Record<string, boolean> = {};
   for (const id of turnOrder) {
-    flags[id] = dealFlags[id] ?? { hadTriple: false, hadTwoJokers: false };
+    flags[id] = dealFlags[id] ?? { hadTriple: false, hadTwoJokers: false, hadRepeatedValue: false };
     isAnonymous[id] = anonymousOverrides[id] ?? false;
   }
   return {
@@ -50,7 +50,7 @@ function finalState(
     lastMessage: '',
     lastAnswers: null,
     revealedCard: null,
-    dealFlags: flags,
+    dealFlags: flags, eliminationOrder: [],
     isAnonymous,
     finalStats: null,
     finalAchievements: null,
@@ -150,7 +150,7 @@ function finalState(
   const t = createAchievementTracker();
   const grants = computeMatchAchievements(
     t,
-    finalState(['p1', 'p2'], 'p1', pub({}, ['p1', 'p2']), { p1: { hadTriple: true, hadTwoJokers: false } }),
+    finalState(['p1', 'p2'], 'p1', pub({}, ['p1', 'p2']), { p1: { hadTriple: true, hadTwoJokers: false, hadRepeatedValue: false } }),
     {}
   );
   assert(!!grants.p1?.includes('alto_trio'), 'Alto Trío: se otorga si ganó y le tocó trío al repartir');
@@ -213,7 +213,7 @@ function finalState(
   const t = createAchievementTracker();
   const grants = computeMatchAchievements(
     t,
-    finalState(['p1', 'p2'], null, pub({}, ['p1', 'p2']), { p1: { hadTriple: false, hadTwoJokers: true } }),
+    finalState(['p1', 'p2'], null, pub({}, ['p1', 'p2']), { p1: { hadTriple: false, hadTwoJokers: true, hadRepeatedValue: false } }),
     {}
   );
   assert(!!grants.p1?.includes('don_o_maldicion'), 'Don o maldición: se otorga con los 2 Jokers al repartir, gane o no');

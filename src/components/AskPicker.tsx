@@ -10,8 +10,9 @@ const QUESTION_MENU: { id: AskQuestionId; label: string }[] = [
   { id: 'LOWER_THAN', label: 'Menor que X' },
   { id: 'BETWEEN', label: 'Entre X e Y' },
   { id: 'OF_SUIT', label: 'De palo X' },
+  { id: 'BETWEEN_OF_SUIT', label: 'De palo X, entre X e Y' },
   { id: 'OF_VALUE', label: 'De valor X' },
-  { id: 'REPEATED_VALUE_IN_HAND', label: '¿Alguien tiene un valor repetido en su mano?' },
+  { id: 'REPEATED_VALUE_IN_HAND', label: '¿Alguien tiene o tuvo un valor repetido en su mano?' },
 ];
 
 // Preguntas que no necesitan parámetros extra: se mandan apenas se tocan,
@@ -51,6 +52,8 @@ export function AskPicker({
         return { id: selectedId, value };
       case 'BETWEEN':
         return { id: 'BETWEEN', min, max };
+      case 'BETWEEN_OF_SUIT':
+        return { id: 'BETWEEN_OF_SUIT', min, max, suit };
       case 'OF_SUIT':
         return { id: 'OF_SUIT', suit };
       case 'REPEATED_VALUE_IN_HAND':
@@ -138,6 +141,41 @@ export function AskPicker({
               {SUIT_OPTIONS.map((s) => (
                 <option key={s} value={s}>
                   {SUIT_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {selectedId === 'BETWEEN_OF_SUIT' && (
+        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <label style={{ fontSize: 18 }}>
+            Palo:{' '}
+            <select style={selectStyle} value={suit} onChange={(e) => setSuit(e.target.value as Suit)}>
+              {SUIT_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {SUIT_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: 18 }}>
+            Mínimo:{' '}
+            <select style={selectStyle} value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>
+              {RANK_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {RANK_LABELS[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label style={{ fontSize: 18 }}>
+            Máximo:{' '}
+            <select style={selectStyle} value={max} onChange={(e) => setMax(Number(e.target.value) as Rank)}>
+              {RANK_OPTIONS.map((r) => (
+                <option key={r} value={r}>
+                  {RANK_LABELS[r]}
                 </option>
               ))}
             </select>

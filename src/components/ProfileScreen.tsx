@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { getProfile, updateUsername } from '../firebase/profile';
+import { getProfileAndRepair, updateUsername } from '../firebase/profile';
 import type { UserProfile } from '../firebase/profile';
 import { ACHIEVEMENTS } from '../game/achievements';
+import { getTier, getNextTier, skillOrdinal } from '../game/rank';
+import { RankGemIcon } from './RankGemIcon';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
@@ -23,7 +25,7 @@ export function ProfileScreen({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    getProfile(uid)
+    getProfileAndRepair(uid)
       .then((p) => {
         setProfile(p);
         setNameInput(p?.username ?? '');
@@ -71,6 +73,13 @@ export function ProfileScreen({
   const killSharePct = totalActions > 0 ? Math.round((profile.killAttempts / totalActions) * 100) : 0;
   const askSharePct = totalActions > 0 ? Math.round((profile.askCount / totalActions) * 100) : 0;
   const passSharePct = totalActions > 0 ? Math.round((profile.passCount / totalActions) * 100) : 0;
+
+  const ordinal = skillOrdinal({ mu: profile.mu, sigma: profile.sigma });
+  const tier = getTier(ordinal);
+  const nextTier = getNextTier(tier.id);
+  const progressPct = nextTier
+    ? Math.min(100, Math.round(((ordinal - tier.minOrdinal) / (nextTier.minOrdinal - tier.minOrdinal)) * 100))
+    : 100;
 
   return (
     <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
@@ -121,6 +130,39 @@ export function ProfileScreen({
       )}
 
       {error && <p style={{ color: 'var(--snitch-accent)', fontSize: 14 }}>{error}</p>}
+
+      <div style={{ maxWidth: 280, margin: '0 auto 20px' }}>
+        <p
+          style={{
+            fontFamily: 'var(--snitch-font-display)',
+            fontSize: 22,
+            color: 'var(--snitch-accent)',
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+          }}
+        >
+          <RankGemIcon light={tier.light} dark={tier.dark} size={26} />
+          {tier.name.toUpperCase()}
+        </p>
+        <div style={{ height: 10, border: '1px solid var(--snitch-muted)', background: 'transparent', marginTop: 8 }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${progressPct}%`,
+              background: 'var(--snitch-accent)',
+            }}
+          />
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--snitch-muted)', marginTop: 4 }}>
+          {nextTier ? `${progressPct}% hacia ${nextTier.name}` : '¡Rango máximo alcanzado!'}
+        </p>
+        <p style={{ fontSize: 11, color: 'var(--snitch-muted)', marginTop: 8 }}>
+          Sube o baja según a quién le ganás o perdés, y qué tan grande era la mesa.
+        </p>
+      </div>
 
       <SectionTitle>General</SectionTitle>
       <StatBlock>

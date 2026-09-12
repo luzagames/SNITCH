@@ -55,7 +55,8 @@ export type AskQuestionId =
   | 'BETWEEN'
   | 'OF_SUIT'
   | 'OF_VALUE'
-  | 'REPEATED_VALUE_IN_HAND';
+  | 'REPEATED_VALUE_IN_HAND'
+  | 'BETWEEN_OF_SUIT';
 
 export interface AskQuestion {
   id: AskQuestionId;
@@ -101,6 +102,11 @@ export interface GameState {
   players: Player[]; // orden = orden de turno (sentido horario)
   currentTurnIndex: number; // índice dentro de players[] de quien juega ahora
   winnerId?: string;
+  // Orden en que fueron quedando ELIMINADOS (no incluye al ganador). El
+  // primero de esta lista fue el primero en caer; el último, el
+  // penúltimo en pie. Se usa para reconstruir el resultado final completo
+  // (1ro, 2do, 3ro...) para el sistema de rating.
+  eliminationOrder: string[];
   // Historial simple de acciones (base para el punto 21: historial/replay)
   history: (
     | { type: 'kill'; result: KillResult }
