@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { isRedSuit, SUIT_SYMBOLS } from '../game/display';
+import { isRedSuit } from '../game/display';
+import { SuitIcon } from './SuitIcon';
 import { RANK_LABELS, SUIT_LABELS } from '../game/askQuestions';
 import { Avatar } from './Avatar';
 import type { Card, Rank, Suit } from '../game/types';
@@ -25,6 +26,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
 
   return (
     <div
+      className="snitch-panel-enter"
       style={{
         border: '2px solid var(--snitch-fg)',
         padding: 'clamp(10px, 3vw, 18px)',
@@ -53,7 +55,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
                 flex: '1 1 64px',
               }}
             >
-              {SUIT_SYMBOLS[suit]}
+              <SuitIcon suit={suit} color={color} size={32} />
             </button>
           );
         })}
@@ -94,7 +96,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
                 }}
               >
                 <span style={{ color: 'var(--snitch-bg)' }}>{RANK_LABELS[rank]}</span>
-                <span style={{ color }}>{selectedSuit ? SUIT_SYMBOLS[selectedSuit] : ''}</span>
+                {selectedSuit && <SuitIcon suit={selectedSuit} color={color} size={14} />}
               </button>
             );
           })}

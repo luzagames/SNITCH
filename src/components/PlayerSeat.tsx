@@ -24,8 +24,11 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
   const gemSize = featured ? 22 : 16;
   const dimmed = !player.alive || !player.connected;
 
+  const showTurnGlow = player.isCurrentTurn && player.connected;
+
   return (
     <div
+      className="snitch-seat-dim-transition"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -35,14 +38,8 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
         filter: dimmed ? 'grayscale(1)' : 'none',
       }}
     >
-      <div
-        style={{
-          border: player.isCurrentTurn ? '2px solid var(--snitch-accent)' : '2px solid transparent',
-          padding: 4,
-          lineHeight: 0,
-        }}
-      >
-        <Avatar alive={player.alive} size={avatarSize} />
+      <div style={{ padding: 4, lineHeight: 0 }}>
+        <Avatar alive={player.alive} size={avatarSize} className={showTurnGlow ? 'snitch-turn-pulse' : undefined} />
       </div>
 
       {/* El asiento destacado (vos) no muestra su propia fila de cartas acá

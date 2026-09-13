@@ -37,6 +37,116 @@ body,
   min-height: 100vh;
   image-rendering: pixelated;
   overflow-x: hidden;
+  /* Fade de entrada sutil cada vez que se monta una pantalla nueva
+     (Home → Lobby → Partida → Ganador, etc.) — cada pantalla comparte
+     esta clase, así que alcanza con ponerlo acá una sola vez. */
+  animation: snitch-screen-fade-in 0.35s ease-out;
+  /* position:relative (no fixed) para que la textura y el overlay de
+     abajo se midan contra ESTA pantalla puntual, no contra toda la
+     ventana — así no compiten en z-index con los popups (toasts, avisos)
+     que sí usan position:fixed en otro lado de la app. */
+  position: relative;
+}
+
+/* Textura sutil tipo grilla de corcho/investigación — un puntito cada
+   22px, casi imperceptible, solo para no dejar el fondo 100% liso. Va
+   DETRÁS de todo el contenido real (por eso es ::before: se pinta primero). */
+.snitch-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(245, 245, 240, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  z-index: 0;
+}
+
+/* Scanlines + viñeta muy sutiles, estilo pantalla retro — van DELANTE de
+   todo (::after se pinta al final), pero con pointer-events:none no
+   estorban ningún clic ni tapan la legibilidad. */
+.snitch-root::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0px, rgba(0, 0, 0, 0.1) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.4) 100%);
+  z-index: 2;
+}
+
+/* El contenido real de cada pantalla va siempre por encima de las dos
+   capas decorativas de arriba y abajo. */
+.snitch-root > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes snitch-screen-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --- El detective "pensando" en la pantalla de carga --- */
+.snitch-loading-bob {
+  animation: snitch-loading-bob-anim 1.6s ease-in-out infinite;
+}
+
+@keyframes snitch-loading-bob-anim {
+  0%,
+  100% {
+    translate: 0 0;
+    rotate: -3deg;
+  }
+  50% {
+    translate: 0 -6px;
+    rotate: 3deg;
+  }
+}
+
+/* --- Logros legendarios desbloqueados: un brillo dorado sutil --- */
+.snitch-legendary-glow {
+  animation: snitch-legendary-glow-anim 2.4s ease-in-out infinite;
+}
+
+@keyframes snitch-legendary-glow-anim {
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(255, 224, 102, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 224, 102, 0.7);
+  }
+}
+
+/* --- Puntitos animados de "Resolviendo..." --- */
+.snitch-loading-dots span {
+  display: inline-block;
+  animation: snitch-loading-dots-anim 1.2s ease-in-out infinite;
+  opacity: 0.2;
+}
+.snitch-loading-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+.snitch-loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.snitch-loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes snitch-loading-dots-anim {
+  0%,
+  60%,
+  100% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
+  }
 }
 
 .snitch-blink {
@@ -77,11 +187,16 @@ body,
   font-size: 20px;
   cursor: pointer;
   letter-spacing: 1px;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.snitch-root button:hover {
+.snitch-root button:hover:not(:disabled) {
   background: var(--snitch-fg);
   color: var(--snitch-bg);
+}
+
+.snitch-root button:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .snitch-root button.snitch-btn-accent {
@@ -89,7 +204,247 @@ body,
   color: var(--snitch-accent);
 }
 
-.snitch-root button.snitch-btn-accent:hover {
+.snitch-root button.snitch-btn-accent:hover:not(:disabled) {
   background: var(--snitch-accent);
   color: var(--snitch-fg);
+}
+
+/* --- La carta que se revela con un KILL exitoso --- */
+/* Dura EXACTAMENTE lo mismo que REVEAL_DURATION_MS en
+   MultiplayerGameScreen.tsx (1000ms) — así, cuando el código saca el
+   elemento del DOM, la animación ya terminó de desvanecerlo del todo, y
+   no se nota el corte. Si alguna vez se cambia esa duración en el
+   código, hay que actualizar este número también. Ahora suma un giro en
+   el eje Y (como si la carta se estuviera dando vuelta para mostrarse),
+   además del pop de siempre. */
+.snitch-card-flash {
+  animation: snitch-card-flash-anim 1000ms ease-out forwards;
+}
+
+@keyframes snitch-card-flash-anim {
+  0% {
+    transform: translate(-50%, -50%) perspective(400px) scale(0.4) rotateY(90deg) rotate(-10deg);
+    opacity: 0;
+  }
+  18% {
+    transform: translate(-50%, -50%) perspective(400px) scale(1.15) rotateY(0deg) rotate(3deg);
+    opacity: 1;
+  }
+  28% {
+    transform: translate(-50%, -50%) perspective(400px) scale(1) rotateY(0deg) rotate(0deg);
+    opacity: 1;
+  }
+  78% {
+    transform: translate(-50%, -50%) perspective(400px) scale(1) rotateY(0deg) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) perspective(400px) scale(0.85) rotateY(0deg) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+/* --- El popup de "logro desbloqueado" --- */
+/* Mismo truco: dura lo mismo que DISPLAY_DURATION_MS en
+   AchievementToast.tsx (3500ms). */
+.snitch-toast-anim {
+  animation: snitch-toast-anim-keyframes 3500ms ease-out forwards;
+}
+
+@keyframes snitch-toast-anim-keyframes {
+  0% {
+    transform: translateX(-50%) translateY(-30px);
+    opacity: 0;
+  }
+  8% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  88% {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) translateY(-14px);
+    opacity: 0;
+  }
+}
+
+/* --- Brillo pulsante en el jugador que tiene el turno --- */
+/* drop-shadow (a diferencia de box-shadow) sigue el contorno REAL de lo
+   dibujado en el SVG, no la caja rectangular que lo contiene — por eso
+   esta clase va puesta directo en el <svg> del avatar, no en un div que
+   lo envuelva. */
+.snitch-turn-pulse {
+  animation: snitch-turn-pulse-anim 1.4s ease-in-out infinite;
+}
+
+@keyframes snitch-turn-pulse-anim {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px var(--snitch-accent));
+  }
+  50% {
+    filter: drop-shadow(0 0 7px var(--snitch-accent)) drop-shadow(0 0 7px var(--snitch-accent));
+  }
+}
+
+/* --- Eliminación / desconexión: transición suave a gris, no un salto --- */
+.snitch-seat-dim-transition {
+  transition: opacity 0.6s ease, filter 0.6s ease;
+}
+
+/* --- Paneles de KILL / PREGUNTAR al abrirse --- */
+.snitch-panel-enter {
+  animation: snitch-panel-enter-anim 0.25s ease-out;
+}
+
+@keyframes snitch-panel-enter-anim {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* --- Corazones: un "pop" cada vez que se gana o se pierde uno --- */
+/* Usa la propiedad "scale" sola (no "transform: scale(...)") a propósito
+   — así se puede combinar sin pisarse con el temblor de abajo, que anima
+   "rotate"/"translate" por separado. Si ambas animaran la propiedad
+   "transform" a la vez, una de las dos ganaría y la otra se perdería. */
+.snitch-heart-pop {
+  animation: snitch-heart-pop-anim 0.4s ease-out;
+}
+
+@keyframes snitch-heart-pop-anim {
+  0% {
+    scale: 0.3;
+  }
+  55% {
+    scale: 1.35;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* --- El último corazón: tiembla, como si estuviera por romperse --- */
+.snitch-heart-danger {
+  animation: snitch-heart-danger-anim 0.5s ease-in-out infinite;
+}
+
+@keyframes snitch-heart-danger-anim {
+  0%,
+  100% {
+    rotate: 0deg;
+    translate: 0 0;
+  }
+  20% {
+    rotate: -8deg;
+    translate: -1px 0;
+  }
+  40% {
+    rotate: 7deg;
+    translate: 1px 0;
+  }
+  60% {
+    rotate: -6deg;
+    translate: -1px 0;
+  }
+  80% {
+    rotate: 5deg;
+    translate: 1px 0;
+  }
+}
+
+/* Cuando el corazón que queda en peligro ACABA de cambiar (se ganó o se
+   perdió uno), hace falta el pop de entrada Y el temblor de alerta
+   juntos — como ahora animan propiedades DISTINTAS (scale vs
+   rotate/translate), alcanza con sumar las dos animaciones en la lista,
+   sin necesidad de retraso ni de pisarse entre sí. */
+.snitch-heart-pop-danger {
+  animation: snitch-heart-pop-anim 0.4s ease-out, snitch-heart-danger-anim 0.5s ease-in-out infinite;
+}
+
+/* --- Jugadores nuevos entrando a la lista del lobby --- */
+.snitch-list-item-enter {
+  animation: snitch-list-item-enter-anim 0.3s ease-out;
+}
+
+@keyframes snitch-list-item-enter-anim {
+  from {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* --- Confeti de la pantalla de victoria --- */
+.snitch-confetti-piece {
+  position: absolute;
+  top: -20px;
+  width: 8px;
+  height: 8px;
+  animation-name: snitch-confetti-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+@keyframes snitch-confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg);
+    opacity: 0.9;
+  }
+}
+
+/* --- Entrada del nombre del ganador --- */
+.snitch-winner-pop {
+  animation: snitch-winner-pop-anim 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes snitch-winner-pop-anim {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* --- Selección de texto y barra de scroll, a tono con la estética --- */
+.snitch-root ::selection {
+  background: var(--snitch-accent);
+  color: var(--snitch-fg);
+}
+
+.snitch-root {
+  scrollbar-color: var(--snitch-accent) var(--snitch-bg);
+  scrollbar-width: thin;
+}
+
+.snitch-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.snitch-root ::-webkit-scrollbar-track {
+  background: var(--snitch-bg);
+}
+
+.snitch-root ::-webkit-scrollbar-thumb {
+  background: var(--snitch-accent);
+  border: 2px solid var(--snitch-bg);
 }

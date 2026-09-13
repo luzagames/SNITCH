@@ -98,7 +98,15 @@ function Seat({ player, x, y, featured }: { player: PlayerSeatData; x: number; y
   );
 }
 
-export function Table({ players, flashCard }: { players: PlayerSeatData[]; flashCard?: Card | null }) {
+export function Table({
+  players,
+  flashCard,
+  flashKey,
+}: {
+  players: PlayerSeatData[];
+  flashCard?: Card | null;
+  flashKey?: number | null;
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -156,11 +164,12 @@ export function Table({ players, flashCard }: { players: PlayerSeatData[]; flash
         <CenterLogo />
         {flashCard && (
           <div
+            key={flashKey}
+            className="snitch-card-flash"
             style={{
               position: 'absolute',
               top: CENTER_Y,
               left: CENTER_X,
-              transform: 'translate(-50%, -50%)',
               zIndex: 10,
               boxShadow: '0 0 16px rgba(232, 41, 28, 0.7)',
             }}

@@ -20,11 +20,21 @@ function PixelHeart({ filled }: { filled: boolean }) {
 }
 
 export function Hearts({ lives, maxLives = STARTING_LIVES }: HeartsProps) {
+  const danger = lives === 1;
   return (
     <div style={{ display: 'flex', gap: 3 }} aria-label={`${lives} de ${maxLives} vidas`}>
-      {Array.from({ length: maxLives }, (_, i) => (
-        <PixelHeart key={i} filled={i < lives} />
-      ))}
+      {Array.from({ length: maxLives }, (_, i) => {
+        const filled = i < lives;
+        return (
+          <span
+            key={`${i}-${filled}`}
+            className={danger && filled ? 'snitch-heart-pop-danger' : 'snitch-heart-pop'}
+            style={{ display: 'inline-flex' }}
+          >
+            <PixelHeart filled={filled} />
+          </span>
+        );
+      })}
     </div>
   );
 }

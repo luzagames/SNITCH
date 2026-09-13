@@ -54,7 +54,9 @@ export function RankingScreen({ uid, onBack }: { uid: string; onBack: () => void
       {!error && entries === null && <LoadingScreen message="Cargando ranking..." />}
 
       {!error && entries !== null && entries.length === 0 && (
-        <p style={{ color: 'var(--snitch-muted)', marginTop: 32 }}>Todavía no hay nadie en esta categoría.</p>
+        <p style={{ color: 'var(--snitch-muted)', marginTop: 32 }}>
+          Ni un solo sospechoso en esta categoría todavía. ¿Vas a ser el primero?
+        </p>
       )}
 
       {!error && entries !== null && entries.length > 0 && (

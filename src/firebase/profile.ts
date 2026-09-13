@@ -2,8 +2,8 @@ import { doc, getDoc, getDocs, setDoc, updateDoc, increment, runTransaction, col
 import { db } from './config';
 import type { MatchStatsAccumulator } from './gameSyncLogic';
 import type { AchievementId } from '../game/achievements';
-import { DEFAULT_SKILL, skillOrdinal, updateSkillRatings } from '../game/rank';
-import type { SkillRating } from '../game/rank';
+import { DEFAULT_SKILL, skillOrdinal, updateSkillRatings, getTier } from '../game/rank';
+import type { SkillRating, Tier } from '../game/rank';
 
 export interface UserProfile {
   username: string;
@@ -174,6 +174,12 @@ function computeLifetimeAchievements(updated: UserProfile): AchievementId[] {
 // como FOTO FIJA al momento de arrancar — no el rating actual de cada
 // uno, que puede haber cambiado mientras tanto. myPlacementIndex es la
 // posición de ESTE jugador dentro de esa lista (0 = ganador).
+export interface RecordMatchResult {
+  newlyUnlocked: AchievementId[];
+  oldTier: Tier;
+  newTier: Tier;
+}
+
 export async function recordMatchStats(
   uid: string,
   won: boolean,
@@ -181,9 +187,11 @@ export async function recordMatchStats(
   matchAchievements: AchievementId[],
   allSkillsInPlacementOrder: SkillRating[],
   myPlacementIndex: number
-): Promise<AchievementId[]> {
+): Promise<RecordMatchResult> {
   const ref = profileRef(uid);
   let newlyUnlocked: AchievementId[] = [];
+  let oldTier: Tier = getTier(skillOrdinal(DEFAULT_SKILL));
+  let newTier: Tier = oldTier;
 
   const updatedSkills = updateSkillRatings(allSkillsInPlacementOrder);
   const myNewSkill = updatedSkills[myPlacementIndex];
@@ -195,6 +203,13 @@ export async function recordMatchStats(
 
     const newCurrentStreak = won ? numOr0(prev.currentStreak) + 1 : 0;
     const newBestStreak = Math.max(numOr0(prev.bestStreak), newCurrentStreak);
+    oldTier = getTier(
+      skillOrdinal({
+        mu: prev.mu !== undefined ? numOr0(prev.mu) : DEFAULT_SKILL.mu,
+        sigma: prev.sigma !== undefined ? numOr0(prev.sigma) : DEFAULT_SKILL.sigma,
+      })
+    );
+    newTier = getTier(skillOrdinal(myNewSkill));
 
     const updated: UserProfile = {
       ...prev,
@@ -229,7 +244,7 @@ export async function recordMatchStats(
     tx.set(ref, updated);
   });
 
-  return newlyUnlocked;
+  return { newlyUnlocked, oldTier, newTier };
 }
 
 // Se mantiene por si algo todavía la usa en algún lado, pero

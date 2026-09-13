@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ACHIEVEMENTS } from '../game/achievements';
 import type { AchievementId } from '../game/achievements';
+import { TrophyIcon } from './TrophyIcon';
 
 const DISPLAY_DURATION_MS = 3500;
 
@@ -31,11 +32,11 @@ export function AchievementToast({ achievementId }: { achievementId: Achievement
 
   return (
     <div
+      className="snitch-toast-anim"
       style={{
         position: 'fixed',
         top: 16,
         left: '50%',
-        transform: 'translateX(-50%)',
         zIndex: 50,
         background: 'var(--snitch-bg)',
         border: '2px solid var(--snitch-accent)',
@@ -46,7 +47,9 @@ export function AchievementToast({ achievementId }: { achievementId: Achievement
       }}
       role="status"
     >
-      <p style={{ margin: 0, fontSize: 13, color: 'var(--snitch-accent)' }}>🏆 LOGRO DESBLOQUEADO</p>
+      <p style={{ margin: 0, fontSize: 13, color: 'var(--snitch-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <TrophyIcon size={14} /> LOGRO DESBLOQUEADO
+      </p>
       <p style={{ margin: '4px 0 0', fontSize: 18 }}>{def.name}</p>
       <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--snitch-muted)' }}>{def.description}</p>
     </div>

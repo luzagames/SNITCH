@@ -7,6 +7,10 @@ import { isHostStale } from '../hooks/hostPresenceLogic';
 import { recordMatchStats } from '../firebase/profile';
 import { createStatsAccumulator } from '../firebase/gameSyncLogic';
 import { computeFinalPlacement, getTier, skillOrdinal } from '../game/rank';
+import type { Tier } from '../game/rank';
+import { Confetti } from './Confetti';
+import { MatchIcon } from './MatchIcon';
+import { RankChangeToast } from './RankChangeToast';
 import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
 import { VictoryCard } from './VictoryCard';
 import { captureAndShareImage } from '../utils/shareImage';
@@ -46,11 +50,28 @@ export function MultiplayerGameScreen({
   const lastAchievementEventSeen = useRef<number | null>(null);
   const statsRecorded = useRef(false);
   const { current: currentToast, pushAchievements } = useAchievementToastQueue();
+  const [rankChange, setRankChange] = useState<{ from: Tier; to: Tier } | null>(null);
   const [shareWinFeedback, setShareWinFeedback] = useState<string | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
   const victoryCardRef = useRef<HTMLDivElement>(null);
   const previousKnownHostId = useRef<string | null>(null);
   const [becameHostNotice, setBecameHostNotice] = useState(false);
+
+  // Título de la pestaña: avisa si es tu turno sin tener que tener la
+  // pestaña activa. El reset a "SNITCH" a secas solo pasa al desmontar de
+  // verdad (irse de la partida) — no en cada cambio de turno, para no
+  // resetear y reescribir el título en cada render de más.
+  useEffect(() => {
+    if (!gs) return;
+    const myTurnNow = gs.status === 'playing' && gs.turnOrder[gs.currentTurnIndex] === uid;
+    document.title = myTurnNow ? '¡Tu turno! - SNITCH' : 'SNITCH';
+  }, [gs, uid]);
+
+  useEffect(() => {
+    return () => {
+      document.title = 'SNITCH';
+    };
+  }, []);
 
   // Avisamos SOLO cuando ya sabíamos con certeza que el host era OTRA
   // persona (previousKnownHostId tenía un valor real, no null) y después
@@ -191,10 +212,14 @@ export function MultiplayerGameScreen({
     const allSkillsInPlacementOrder = placement.map((id) => gs.playersPublic[id].skill);
     const myPlacementIndex = placement.indexOf(uid);
     recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements, allSkillsInPlacementOrder, myPlacementIndex)
-      .then((newlyUnlockedLifetime) => {
+      .then(({ newlyUnlocked, oldTier, newTier }) => {
         // Los de por vida (rachas, totales) recién se saben acá, después
         // de escribir el perfil — se muestran con el mismo popup.
-        pushAchievements(newlyUnlockedLifetime);
+        pushAchievements(newlyUnlocked);
+        if (oldTier.id !== newTier.id) {
+          setRankChange({ from: oldTier, to: newTier });
+          setTimeout(() => setRankChange(null), 4000);
+        }
       })
       .catch(() => {
         statsRecorded.current = false; // si falló, permitir reintentar en el próximo render
@@ -249,7 +274,9 @@ export function MultiplayerGameScreen({
     const iWon = gs.winnerId === uid;
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
-        {currentToast && <AchievementToast achievementId={currentToast} />}
+        <Confetti />
+        {currentToast && <AchievementToast key={currentToast} achievementId={currentToast} />}
+        {rankChange && <RankChangeToast from={rankChange.from} to={rankChange.to} />}
         {iWon && (
           <VictoryCard
             ref={victoryCardRef}
@@ -259,7 +286,9 @@ export function MultiplayerGameScreen({
           />
         )}
         <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>GANADOR</p>
-        <p style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>{winnerName}</p>
+        <p className="snitch-winner-pop" style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>
+          {winnerName}
+        </p>
         <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>ÚLTIMO EN PIE</p>
         {iWon && (
           <div>
@@ -296,7 +325,7 @@ export function MultiplayerGameScreen({
   if (iAmEliminated && !spectating) {
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
-        {currentToast && <AchievementToast achievementId={currentToast} />}
+        {currentToast && <AchievementToast key={currentToast} achievementId={currentToast} />}
         <p style={{ fontSize: 'clamp(18px, 5vw, 24px)' }}>Fuiste eliminado.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 280, margin: '24px auto' }}>
           <button className="snitch-btn-accent" onClick={() => setSpectating(true)}>
@@ -348,7 +377,7 @@ export function MultiplayerGameScreen({
 
   return (
     <div className="snitch-root" style={{ padding: 'clamp(12px, 4vw, 24px)' }}>
-      {currentToast && <AchievementToast achievementId={currentToast} />}
+      {currentToast && <AchievementToast key={currentToast} achievementId={currentToast} />}
       {!iAmEliminated && (
         <button
           onClick={handleLeaveGame}
@@ -402,15 +431,26 @@ export function MultiplayerGameScreen({
         </div>
       )}
 
-      <Table players={seatData} flashCard={flashCard} />
+      <Table players={seatData} flashCard={flashCard} flashKey={lastRevealSeen.current} />
 
       {!iAmEliminated && myHand.length > 0 && (
         <div style={{ textAlign: 'center', margin: '4px 0 12px' }}>
           <p style={{ fontSize: 14, color: 'var(--snitch-muted)', marginBottom: 6 }}>TU MANO</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {myHand.map((card, i) => (
-              <CardSlot key={i} state={{ kind: 'faceup', card }} size={56} />
-            ))}
+            {myHand.map((card, i) => {
+              // Abanico: la del medio queda derecha, las de los costados
+              // se inclinan hacia afuera y bajan un poquito — como
+              // sostener cartas de verdad en la mano, no una fila plana.
+              const center = (myHand.length - 1) / 2;
+              const offset = i - center;
+              const rotate = offset * 8;
+              const translateY = Math.abs(offset) * 6;
+              return (
+                <div key={i} style={{ transform: `rotate(${rotate}deg) translateY(${translateY}px)`, transformOrigin: 'bottom center' }}>
+                  <CardSlot state={{ kind: 'faceup', card }} size={56} />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -420,13 +460,25 @@ export function MultiplayerGameScreen({
       </p>
 
       {gs.lastAnswers && (
-        <p style={{ textAlign: 'center', fontSize: 16, color: 'var(--snitch-muted)' }}>
-          {gs.lastAnswers.map((a) => `${gs.playersPublic[a.playerId]?.name}${a.matches ? '✓' : '✗'}`).join('  ')}
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '4px 14px', fontSize: 16, color: 'var(--snitch-muted)' }}>
+          {gs.lastAnswers.map((a) => (
+            <span key={a.playerId} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {gs.playersPublic[a.playerId]?.name}
+              <MatchIcon matches={a.matches} size={13} />
+            </span>
+          ))}
+        </div>
       )}
 
       {waitingOnReferee && (
-        <p style={{ textAlign: 'center', fontSize: 16, color: 'var(--snitch-muted)' }}>Resolviendo...</p>
+        <p style={{ textAlign: 'center', fontSize: 16, color: 'var(--snitch-muted)' }}>
+          Resolviendo
+          <span className="snitch-loading-dots">
+            <span>.</span>
+            <span>.</span>
+            <span>.</span>
+          </span>
+        </p>
       )}
 
       {!waitingOnReferee && panel === 'closed' && (

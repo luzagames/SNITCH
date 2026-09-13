@@ -73,7 +73,10 @@ export function AskPicker({
   }
 
   return (
-    <div style={{ border: '2px solid var(--snitch-fg)', padding: 'clamp(8px, 3vw, 16px)', width: 'min(480px, 95vw)', margin: '0 auto', boxSizing: 'border-box' }}>
+    <div
+      className="snitch-panel-enter"
+      style={{ border: '2px solid var(--snitch-fg)', padding: 'clamp(8px, 3vw, 16px)', width: 'min(480px, 95vw)', margin: '0 auto', boxSizing: 'border-box' }}
+    >
       <p style={{ fontSize: 'clamp(18px, 5vw, 20px)', marginTop: 0 }}>Elegí una pregunta:</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
         {QUESTION_MENU.map((q) => (

@@ -104,7 +104,7 @@ export function Lobby({
       <p style={{ fontSize: 18, color: 'var(--snitch-muted)', marginTop: 32, marginBottom: 8 }}>JUGADORES</p>
       <ul style={{ listStyle: 'none', padding: 0, fontSize: 22 }}>
         {players.map((p) => (
-          <li key={p.id}>
+          <li key={p.id} className="snitch-list-item-enter">
             {p.name}
             {p.id === hostId ? ' (host)' : ''}
             {p.id === uid ? ' (vos)' : ''}
@@ -122,7 +122,9 @@ export function Lobby({
           {starting ? 'Repartiendo...' : 'EMPEZAR PARTIDA'}
         </button>
       ) : (
-        <p style={{ marginTop: 24, color: 'var(--snitch-muted)' }}>Esperando a que el host arranque...</p>
+        <p style={{ marginTop: 24, color: 'var(--snitch-muted)' }} className="snitch-blink">
+          El host está por dar la orden de arrancar...
+        </p>
       )}
 
       {isHost && !canStart && (
@@ -131,9 +133,11 @@ export function Lobby({
         </p>
       )}
 
-      <button onClick={handleLeaveLobby} style={{ marginTop: 24, fontSize: 13, color: 'var(--snitch-muted)' }}>
-        SALIR DEL LOBBY
-      </button>
+      <div>
+        <button onClick={handleLeaveLobby} style={{ marginTop: 24, fontSize: 13, color: 'var(--snitch-muted)' }}>
+          SALIR DEL LOBBY
+        </button>
+      </div>
     </div>
   );
 }

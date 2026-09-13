@@ -1,8 +1,9 @@
 import type { CSSProperties } from 'react';
 import type { Card } from '../game/types';
-import { cardLabel, isRedSuit, SUIT_SYMBOLS } from '../game/display';
+import { cardLabel, isRedSuit } from '../game/display';
 import { RANK_LABELS } from '../game/askQuestions';
 import { Avatar } from './Avatar';
+import { SuitIcon } from './SuitIcon';
 
 type CardSlotState =
   | { kind: 'hidden' } // boca abajo, de otro jugador
@@ -23,7 +24,19 @@ export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: nu
   };
 
   if (state.kind === 'hidden') {
-    return <div style={base} aria-label="Carta oculta" />;
+    return (
+      <div style={base} aria-label="Carta oculta">
+        <svg width={size * 0.4} height={size * 0.4} viewBox="0 0 9 9" shapeRendering="crispEdges" aria-hidden="true">
+          <rect x="1" y="0" width="3" height="1" fill="var(--snitch-muted)" />
+          <rect x="0" y="1" width="1" height="3" fill="var(--snitch-muted)" />
+          <rect x="4" y="1" width="1" height="3" fill="var(--snitch-muted)" />
+          <rect x="1" y="4" width="3" height="1" fill="var(--snitch-muted)" />
+          <rect x="4" y="5" width="2" height="1" fill="var(--snitch-muted)" />
+          <rect x="5" y="6" width="2" height="1" fill="var(--snitch-muted)" />
+          <rect x="6" y="7" width="2" height="1" fill="var(--snitch-muted)" />
+        </svg>
+      </div>
+    );
   }
 
   if (state.kind === 'gone') {
@@ -63,7 +76,7 @@ export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: nu
       aria-label={`Carta ${cardLabel(card)}`}
     >
       <span style={{ color: 'var(--snitch-bg)' }}>{RANK_LABELS[card.rank]}</span>
-      <span style={{ color: suitColor }}>{SUIT_SYMBOLS[card.suit]}</span>
+      <SuitIcon suit={card.suit} color={suitColor} size={Math.round(size * (14 / 34))} />
     </div>
   );
 }

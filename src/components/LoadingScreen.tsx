@@ -1,3 +1,4 @@
+import { Avatar } from './Avatar';
 import '../styles/theme.css';
 
 export function LoadingScreen({ message, isError = false }: { message: string; isError?: boolean }) {
@@ -18,6 +19,11 @@ export function LoadingScreen({ message, isError = false }: { message: string; i
       <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(28px, 8vw, 40px)', margin: 0 }}>
         SNITCH
       </p>
+      {!isError && (
+        <div className="snitch-loading-bob">
+          <Avatar alive size={64} />
+        </div>
+      )}
       <p
         className={isError ? undefined : 'snitch-blink'}
         style={{

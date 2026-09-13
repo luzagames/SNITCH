@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { getProfileAndRepair, updateUsername } from '../firebase/profile';
 import type { UserProfile } from '../firebase/profile';
 import { ACHIEVEMENTS } from '../game/achievements';
+import type { AchievementRarity } from '../game/achievements';
 import { getTier, getNextTier, skillOrdinal } from '../game/rank';
 import { RankGemIcon } from './RankGemIcon';
 import { LoadingScreen } from './LoadingScreen';
@@ -197,18 +198,26 @@ export function ProfileScreen({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320, margin: '0 auto' }}>
         {ACHIEVEMENTS.map((a) => {
           const unlocked = profile.achievements.includes(a.id);
+          const rarity = RARITY_STYLES[a.rarity];
+          const borderColor = unlocked ? rarity.color : 'var(--snitch-muted)';
           return (
             <div
               key={a.id}
+              className={unlocked && a.rarity === 'legendary' ? 'snitch-legendary-glow' : undefined}
               style={{
                 textAlign: 'left',
-                border: `2px solid ${unlocked ? 'var(--snitch-accent)' : 'var(--snitch-muted)'}`,
+                border: `${a.rarity === 'legendary' ? 3 : 2}px solid ${borderColor}`,
                 padding: '8px 10px',
                 opacity: unlocked ? 1 : 0.5,
               }}
             >
-              <p style={{ margin: 0, fontSize: 16, color: unlocked ? 'var(--snitch-accent)' : 'var(--snitch-fg)' }}>
+              <p style={{ margin: 0, fontSize: 16, color: unlocked ? rarity.color : 'var(--snitch-fg)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 {unlocked ? a.name : '??? (bloqueado)'}
+                {a.rarity !== 'common' && (
+                  <span style={{ fontSize: 10, color: unlocked ? rarity.color : 'var(--snitch-muted)', letterSpacing: 1 }}>
+                    {rarity.label.toUpperCase()}
+                  </span>
+                )}
               </p>
               <p style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--snitch-muted)' }}>
                 {unlocked ? a.description : 'Todavía no lo desbloqueaste.'}
@@ -224,6 +233,12 @@ export function ProfileScreen({
     </div>
   );
 }
+
+const RARITY_STYLES: Record<AchievementRarity, { color: string; label: string }> = {
+  common: { color: 'var(--snitch-accent)', label: 'Común' },
+  rare: { color: '#8C7AE6', label: 'Raro' },
+  legendary: { color: '#FFE066', label: 'Legendario' },
+};
 
 function SectionTitle({ children }: { children: string }) {
   return (
