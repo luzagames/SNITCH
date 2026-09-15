@@ -12,6 +12,8 @@ import { getSkinById, getAvatarFillColor } from '../game/skins';
 import { Confetti } from './Confetti';
 import { MatchIcon } from './MatchIcon';
 import { RankChangeToast } from './RankChangeToast';
+import { MatchIntroScreen } from './MatchIntroScreen';
+import type { IntroPlayer } from './MatchIntroScreen';
 import { AchievementToast, useAchievementToastQueue } from './AchievementToast';
 import { VictoryCard } from './VictoryCard';
 import { captureAndShareImage } from '../utils/shareImage';
@@ -57,6 +59,19 @@ export function MultiplayerGameScreen({
   const victoryCardRef = useRef<HTMLDivElement>(null);
   const previousKnownHostId = useRef<string | null>(null);
   const [becameHostNotice, setBecameHostNotice] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+  const introTimerStarted = useRef(false);
+
+  // La intro dura un ratito y arranca UNA sola vez por partida — el ref
+  // evita que se reinicie el timer en cada actualización de gs (que
+  // llega seguido, por cada acción de cualquier jugador).
+  useEffect(() => {
+    if (gs?.status === 'playing' && !introTimerStarted.current) {
+      introTimerStarted.current = true;
+      const t = setTimeout(() => setShowIntro(false), 2600);
+      return () => clearTimeout(t);
+    }
+  }, [gs?.status]);
 
   // Título de la pestaña: avisa si es tu turno sin tener que tener la
   // pestaña activa. El reset a "SNITCH" a secas solo pasa al desmontar de
@@ -329,6 +344,20 @@ export function MultiplayerGameScreen({
 
   // Jugador eliminado que todavía no eligió qué hacer: mostrar la elección
   // antes de dejarlo ver el resto de la mesa como espectador.
+  if (showIntro) {
+    const introPlayers: IntroPlayer[] = gs.turnOrder.map((playerId) => {
+      const pub = gs.playersPublic[playerId];
+      const skin = getSkinById(pub.skinId);
+      return {
+        id: playerId,
+        name: pub.name,
+        isYou: playerId === uid,
+        palette: { stroke: skin.accent, fill: getAvatarFillColor(skin) },
+      };
+    });
+    return <MatchIntroScreen players={introPlayers} onSkip={() => setShowIntro(false)} />;
+  }
+
   if (iAmEliminated && !spectating) {
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
