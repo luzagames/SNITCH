@@ -15,6 +15,10 @@ export interface PlayerPublicInfo {
   // se actualiza durante la partida) — se usa tanto para calcular el
   // cambio de rating al final como para el distintivo visible en la mesa.
   skill: SkillRating;
+  // El skin que tenía elegido AL MOMENTO de arrancar la partida — así el
+  // avatar de cada jugador se dibuja con SUS colores, no con los del
+  // skin de quien está mirando la pantalla.
+  skinId: string;
 }
 
 export type PendingAction =
@@ -34,6 +38,11 @@ export interface DealFlags {
   hadTriple: boolean; // las 3 cartas iniciales tenían el mismo número
   hadTwoJokers: boolean; // te tocaron los 2 Jokers
   hadRepeatedValue: boolean; // al menos 2 de las 3 cartas iniciales compartían número
+  // La mano completa tal como te la repartieron (foto fija — no cambia
+  // aunque después pierdas cartas durante la partida). Se usa para el
+  // logro "En mi salsa": si coincide exactamente con tu mano favorita
+  // guardada en el perfil, lo desbloqueás.
+  dealtHand: Card[];
 }
 
 export interface LiveAchievementEvent {
@@ -167,7 +176,7 @@ export function finalizeBluffStats(
 }
 
 // Arma el SyncedGameState inicial (llamado al arrancar la partida).
-export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating }[]): {
+export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string }[]): {
   state: Omit<SyncedGameState, 'pendingAction'>;
   hands: Record<string, Card[]>;
 } {
@@ -177,19 +186,29 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
   const dealFlags: Record<string, DealFlags> = {};
   const isAnonymous: Record<string, boolean> = {};
   const skillById: Record<string, SkillRating> = {};
+  const skinById: Record<string, string> = {};
   for (const p of players) {
     isAnonymous[p.id] = p.isAnonymous;
     skillById[p.id] = p.skill;
+    skinById[p.id] = p.skinId;
   }
   for (const p of engineState.players) {
-    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length, skill: skillById[p.id] };
+    playersPublic[p.id] = {
+      name: p.name,
+      lives: p.lives,
+      alive: p.alive,
+      handCount: p.hand.length,
+      skill: skillById[p.id],
+      skinId: skinById[p.id],
+    };
     hands[p.id] = p.hand;
 
     const jokerCount = p.hand.filter((c) => c.kind === 'joker').length;
-    const standardRanks = p.hand.filter((c) => c.kind === 'standard').map((c) => c.rank);
+    const standardCards = p.hand.filter((c) => c.kind === 'standard');
+    const standardRanks = standardCards.map((c) => c.rank);
     const hadTriple = p.hand.length === 3 && standardRanks.length === 3 && new Set(standardRanks).size === 1;
     const hadRepeatedValue = new Set(standardRanks).size < standardRanks.length;
-    dealFlags[p.id] = { hadTriple, hadTwoJokers: jokerCount >= 2, hadRepeatedValue };
+    dealFlags[p.id] = { hadTriple, hadTwoJokers: jokerCount >= 2, hadRepeatedValue, dealtHand: [...p.hand] };
   }
   return {
     state: {
@@ -298,7 +317,14 @@ export function applyPendingAction(
   const playersPublic: Record<string, PlayerPublicInfo> = {};
   const changedHands: Record<string, Card[]> = {};
   for (const p of engineState.players) {
-    playersPublic[p.id] = { name: p.name, lives: p.lives, alive: p.alive, handCount: p.hand.length, skill: gs.playersPublic[p.id].skill };
+    playersPublic[p.id] = {
+      name: p.name,
+      lives: p.lives,
+      alive: p.alive,
+      handCount: p.hand.length,
+      skill: gs.playersPublic[p.id].skill,
+      skinId: gs.playersPublic[p.id].skinId,
+    };
     const before = handsByUid[p.id] ?? [];
     if (before.length !== p.hand.length) {
       changedHands[p.id] = p.hand;

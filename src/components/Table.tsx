@@ -159,6 +159,10 @@ export function Table({
           height: HEIGHT,
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
+          // Un óvalo tenue centrado en la mesa (no en toda la pantalla),
+          // como un paño — para distinguirla del resto del fondo negro
+          // sin competir con las cartas ni los avatares.
+          backgroundImage: `radial-gradient(ellipse ${RADIUS_X * 1.35}px ${RADIUS_Y * 1.4}px at ${CENTER_X}px ${CENTER_Y}px, rgba(232, 41, 28, 0.07), transparent 70%)`,
         }}
       >
         <CenterLogo />

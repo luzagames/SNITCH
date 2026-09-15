@@ -56,6 +56,7 @@ export function GameScreen({ playerCount = 4 }: { playerCount?: number }) {
     alive: p.alive,
     connected: true,
     tier: null,
+    palette: { stroke: 'var(--snitch-accent)', fill: 'var(--snitch-fg)' },
     lives: p.lives,
     isYou: p.id === actor.id,
     isCurrentTurn: p.id === actor.id,

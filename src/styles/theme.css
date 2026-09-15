@@ -7,8 +7,62 @@
   --snitch-muted: #4a4a4a;
   --snitch-outline: rgba(245, 245, 240, 0.5);
 
+  /* El "papel" de las cartas y la tinta negra son SIEMPRE los mismos,
+     pase lo que pase con el skin activo — una carta real no cambia de
+     color de fondo porque cambiaste el tema de la app. Separar esto de
+     --snitch-fg/--snitch-bg es lo que evita que un skin con colores muy
+     saturados (como el verde de Matrix) vuelva ilegible el número o el
+     palo de las cartas. */
+  --snitch-card-paper: #f5f5f0;
+  --snitch-card-ink: #16130f;
+
+  /* El color de "piel" del avatar, aparte de --snitch-fg — para la
+     mayoría de los skins es el mismo tono (por eso el valor por
+     defecto), pero algunos (como Bostero) quieren una piel de un color
+     distinto al del texto general de la app, sin que eso afecte la
+     legibilidad de botones, cartas, etc. */
+  --snitch-avatar-fill: var(--snitch-fg);
+
   --snitch-font-display: 'Press Start 2P', monospace;
   --snitch-font-body: 'VT323', monospace;
+}
+
+/* --- Skins alternativos --- */
+/* Se activan poniendo data-skin="id" en <html> (ver useSkin.ts). El
+   default (sin atributo, o data-skin="noir") es el de arriba. Los
+   nombres de fuente se mantienen iguales en todos — lo único que cambia
+   es la paleta de colores, ya que toda la app ya está armada sobre estas
+   5 variables. */
+:root[data-skin='neon'] {
+  --snitch-bg: #120821;
+  --snitch-fg: #f0e6ff;
+  --snitch-accent: #00fff5;
+  --snitch-muted: #7a5ea8;
+  --snitch-outline: rgba(240, 230, 255, 0.5);
+}
+
+:root[data-skin='sepia'] {
+  --snitch-bg: #2b1d14;
+  --snitch-fg: #f0e0c0;
+  --snitch-accent: #c9822a;
+  --snitch-muted: #8a7358;
+  --snitch-outline: rgba(240, 224, 192, 0.5);
+}
+
+:root[data-skin='matrix'] {
+  --snitch-bg: #050805;
+  --snitch-fg: #c8ffd4;
+  --snitch-accent: #00ff41;
+  --snitch-muted: #1f6b32;
+  --snitch-outline: rgba(200, 255, 212, 0.5);
+}
+
+:root[data-skin='miami'] {
+  --snitch-bg: #0a2e36;
+  --snitch-fg: #e8fbff;
+  --snitch-accent: #ff6ec7;
+  --snitch-muted: #4a99a3;
+  --snitch-outline: rgba(232, 251, 255, 0.5);
 }
 
 /* La plantilla de Vite trae sus propios estilos en html/body/#root
@@ -199,6 +253,11 @@ body,
   transform: scale(0.95);
 }
 
+.snitch-root button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .snitch-root button.snitch-btn-accent {
   border-color: var(--snitch-accent);
   color: var(--snitch-accent);
@@ -279,13 +338,18 @@ body,
   animation: snitch-turn-pulse-anim 1.4s ease-in-out infinite;
 }
 
+/* --seat-accent se define inline por jugador (ver PlayerSeat.tsx), con el
+   color de acento de SU skin — así el pulso de "es tu turno" respeta el
+   skin de cada uno en la mesa, no el de quien está mirando la pantalla.
+   Si no se define (por ejemplo, en pantallas que no muestran otros
+   jugadores), cae en el acento del skin activo como antes. */
 @keyframes snitch-turn-pulse-anim {
   0%,
   100% {
-    filter: drop-shadow(0 0 2px var(--snitch-accent));
+    filter: drop-shadow(0 0 2px var(--seat-accent, var(--snitch-accent)));
   }
   50% {
-    filter: drop-shadow(0 0 7px var(--snitch-accent)) drop-shadow(0 0 7px var(--snitch-accent));
+    filter: drop-shadow(0 0 7px var(--seat-accent, var(--snitch-accent))) drop-shadow(0 0 7px var(--seat-accent, var(--snitch-accent)));
   }
 }
 
@@ -447,4 +511,80 @@ body,
 .snitch-root ::-webkit-scrollbar-thumb {
   background: var(--snitch-accent);
   border: 2px solid var(--snitch-bg);
+}
+
+/* --- Contorno del Joker en la carta --- */
+/* El avatar se dibuja en blanco/hueso, igual que el fondo de la carta —
+   sin esto, la cara "desaparece". drop-shadow apilado en las 4
+   direcciones simula un trazo fino alrededor de la forma real (no un
+   rectángulo), a diferencia de un simple box-shadow. */
+.snitch-joker-outline {
+  filter: drop-shadow(1px 0 0 var(--snitch-bg)) drop-shadow(-1px 0 0 var(--snitch-bg))
+    drop-shadow(0 1px 0 var(--snitch-bg)) drop-shadow(0 -1px 0 var(--snitch-bg));
+}
+
+/* --- Más skins --- */
+:root[data-skin='halloween'] {
+  --snitch-bg: #0d0500;
+  --snitch-fg: #f5ead5;
+  --snitch-accent: #ff8800;
+  --snitch-muted: #5a3a1a;
+  --snitch-outline: rgba(245, 234, 213, 0.5);
+}
+
+:root[data-skin='navidad'] {
+  --snitch-bg: #0a2818;
+  --snitch-fg: #f5f5f0;
+  --snitch-accent: #e4293f;
+  --snitch-muted: #3a6b4a;
+  --snitch-outline: rgba(245, 245, 240, 0.5);
+}
+
+:root[data-skin='blood_moon'] {
+  --snitch-bg: #150505;
+  --snitch-fg: #e8d5d5;
+  --snitch-accent: #b3001b;
+  --snitch-muted: #5a2a2a;
+  --snitch-outline: rgba(232, 213, 213, 0.5);
+}
+
+:root[data-skin='seleccion'] {
+  --snitch-bg: #0a1a2e;
+  --snitch-fg: #ffffff;
+  --snitch-accent: #75aadb;
+  --snitch-muted: #3a5a7a;
+  --snitch-outline: rgba(255, 255, 255, 0.5);
+}
+
+:root[data-skin='gameboy'] {
+  --snitch-bg: #0f380f;
+  --snitch-fg: #9bbc0f;
+  --snitch-accent: #8bac0f;
+  --snitch-muted: #306230;
+  --snitch-outline: rgba(155, 188, 15, 0.5);
+}
+
+:root[data-skin='western'] {
+  --snitch-bg: #2e2417;
+  --snitch-fg: #e8dcc0;
+  --snitch-accent: #a0522d;
+  --snitch-muted: #6b5d4f;
+  --snitch-outline: rgba(232, 220, 192, 0.5);
+}
+
+:root[data-skin='blade_runner'] {
+  --snitch-bg: #0a1220;
+  --snitch-fg: #c8d8e8;
+  --snitch-accent: #ff7a1a;
+  --snitch-muted: #3a5570;
+  --snitch-outline: rgba(200, 216, 232, 0.5);
+}
+
+:root[data-skin='bostero'] {
+  --snitch-bg: #0a1f47;
+  --snitch-fg: #f5f0dc;
+  --snitch-accent: #ffd200;
+  --snitch-muted: #4a5a80;
+  --snitch-outline: rgba(245, 240, 220, 0.5);
+  --snitch-avatar-fill: #3d6bb3;
 }

@@ -8,6 +8,7 @@ import { recordMatchStats } from '../firebase/profile';
 import { createStatsAccumulator } from '../firebase/gameSyncLogic';
 import { computeFinalPlacement, getTier, skillOrdinal } from '../game/rank';
 import type { Tier } from '../game/rank';
+import { getSkinById, getAvatarFillColor } from '../game/skins';
 import { Confetti } from './Confetti';
 import { MatchIcon } from './MatchIcon';
 import { RankChangeToast } from './RankChangeToast';
@@ -50,7 +51,7 @@ export function MultiplayerGameScreen({
   const lastAchievementEventSeen = useRef<number | null>(null);
   const statsRecorded = useRef(false);
   const { current: currentToast, pushAchievements } = useAchievementToastQueue();
-  const [rankChange, setRankChange] = useState<{ from: Tier; to: Tier } | null>(null);
+  const [rankChange, setRankChange] = useState<{ from: Tier; to: Tier; delta: number } | null>(null);
   const [shareWinFeedback, setShareWinFeedback] = useState<string | null>(null);
   const [sharingImage, setSharingImage] = useState(false);
   const victoryCardRef = useRef<HTMLDivElement>(null);
@@ -89,15 +90,15 @@ export function MultiplayerGameScreen({
     if (hostId !== null) previousKnownHostId.current = hostId;
   }, [hostId, uid]);
 
-  async function handleShareWin() {
+  async function handleShareWin(won: boolean) {
     if (!victoryCardRef.current || sharingImage) return;
     setSharingImage(true);
     setShareWinFeedback(null);
     try {
       const result = await captureAndShareImage(
         victoryCardRef.current,
-        'snitch-victoria.png',
-        '¡Gané una partida de SNITCH! 🏆🕵️'
+        won ? 'snitch-victoria.png' : 'snitch-derrota.png',
+        won ? '¡Gané una partida de SNITCH! 🏆🕵️' : 'Caí en una partida de SNITCH 🕵️💀'
       );
       if (result === 'downloaded') setShareWinFeedback('¡Imagen descargada!');
     } catch {
@@ -211,13 +212,14 @@ export function MultiplayerGameScreen({
     const placement = computeFinalPlacement(gs.winnerId, gs.eliminationOrder);
     const allSkillsInPlacementOrder = placement.map((id) => gs.playersPublic[id].skill);
     const myPlacementIndex = placement.indexOf(uid);
-    recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements, allSkillsInPlacementOrder, myPlacementIndex)
-      .then(({ newlyUnlocked, oldTier, newTier }) => {
+    const myDealtHand = gs.dealFlags[uid]?.dealtHand ?? [];
+    recordMatchStats(uid, gs.winnerId === uid, myStats, myAchievements, allSkillsInPlacementOrder, myPlacementIndex, myDealtHand)
+      .then(({ newlyUnlocked, oldTier, newTier, ratingDelta }) => {
         // Los de por vida (rachas, totales) recién se saben acá, después
         // de escribir el perfil — se muestran con el mismo popup.
         pushAchievements(newlyUnlocked);
         if (oldTier.id !== newTier.id) {
-          setRankChange({ from: oldTier, to: newTier });
+          setRankChange({ from: oldTier, to: newTier, delta: ratingDelta });
           setTimeout(() => setRankChange(null), 4000);
         }
       })
@@ -274,32 +276,37 @@ export function MultiplayerGameScreen({
     const iWon = gs.winnerId === uid;
     return (
       <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
-        <Confetti />
+        {iWon && <Confetti />}
         {currentToast && <AchievementToast key={currentToast} achievementId={currentToast} />}
-        {rankChange && <RankChangeToast from={rankChange.from} to={rankChange.to} />}
-        {iWon && (
-          <VictoryCard
-            ref={victoryCardRef}
-            winnerName={winnerName ?? '???'}
-            hand={myHand}
-            opponentNames={gs.turnOrder.filter((id) => id !== gs.winnerId).map((id) => gs.playersPublic[id]?.name ?? '')}
-          />
-        )}
-        <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>GANADOR</p>
-        <p className="snitch-winner-pop" style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>
-          {winnerName}
+        {rankChange && <RankChangeToast from={rankChange.from} to={rankChange.to} delta={rankChange.delta} />}
+        <VictoryCard
+          ref={victoryCardRef}
+          winnerName={iWon ? winnerName ?? '???' : gs.playersPublic[uid]?.name ?? '???'}
+          hand={myHand}
+          opponentNames={
+            iWon
+              ? gs.turnOrder.filter((id) => id !== gs.winnerId).map((id) => gs.playersPublic[id]?.name ?? '')
+              : [winnerName ?? '???']
+          }
+          won={iWon}
+        />
+        <p style={{ fontFamily: 'var(--snitch-font-display)', fontSize: 'clamp(20px, 6vw, 28px)' }}>
+          {iWon ? 'GANADOR' : 'PERDEDOR'}
         </p>
-        <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>ÚLTIMO EN PIE</p>
-        {iWon && (
-          <div>
-            <button onClick={handleShareWin} disabled={sharingImage} style={{ marginTop: 16, fontSize: 14 }}>
-              {sharingImage ? 'Generando imagen...' : 'COMPARTIR VICTORIA 🏆'}
-            </button>
-            {shareWinFeedback && (
-              <p style={{ fontSize: 13, color: 'var(--snitch-muted)', marginTop: 4 }}>{shareWinFeedback}</p>
-            )}
-          </div>
-        )}
+        <p className="snitch-winner-pop" style={{ fontSize: 'clamp(24px, 8vw, 32px)', margin: '16px 0', wordBreak: 'break-word' }}>
+          {iWon ? winnerName : 'Has sido derrotado'}
+        </p>
+        <p style={{ fontSize: 'clamp(16px, 4vw, 20px)', color: 'var(--snitch-muted)' }}>
+          {iWon ? 'ÚLTIMO EN PIE' : `POR ${(winnerName ?? '???').toUpperCase()}`}
+        </p>
+        <div>
+          <button onClick={() => handleShareWin(iWon)} disabled={sharingImage} style={{ marginTop: 16, fontSize: 14 }}>
+            {sharingImage ? 'Generando imagen...' : iWon ? 'COMPARTIR VICTORIA 🏆' : 'COMPARTIR DERROTA 💀'}
+          </button>
+          {shareWinFeedback && (
+            <p style={{ fontSize: 13, color: 'var(--snitch-muted)', marginTop: 4 }}>{shareWinFeedback}</p>
+          )}
+        </div>
         {isHost ? (
           <button
             className="snitch-btn-accent"
@@ -355,6 +362,7 @@ export function MultiplayerGameScreen({
       // Los anónimos no tienen un rating real (nunca se les guarda nada),
       // así que no les mostramos el distintivo.
       tier: gs.isAnonymous[playerId] ? null : getTier(skillOrdinal(pub.skill)),
+      palette: { stroke: getSkinById(pub.skinId).accent, fill: getAvatarFillColor(getSkinById(pub.skinId)) },
       cardStates: isYou
         ? myHand.map((card) => ({ kind: 'faceup' as const, card }))
         : Array.from({ length: pub.handCount }, () => ({ kind: 'hidden' as const })),

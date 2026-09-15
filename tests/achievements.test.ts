@@ -150,7 +150,7 @@ function finalState(
   const t = createAchievementTracker();
   const grants = computeMatchAchievements(
     t,
-    finalState(['p1', 'p2'], 'p1', pub({}, ['p1', 'p2']), { p1: { hadTriple: true, hadTwoJokers: false, hadRepeatedValue: false } }),
+    finalState(['p1', 'p2'], 'p1', pub({}, ['p1', 'p2']), { p1: { hadTriple: true, hadTwoJokers: false, hadRepeatedValue: false, dealtSuits: [] } }),
     {}
   );
   assert(!!grants.p1?.includes('alto_trio'), 'Alto Trío: se otorga si ganó y le tocó trío al repartir');
@@ -213,7 +213,7 @@ function finalState(
   const t = createAchievementTracker();
   const grants = computeMatchAchievements(
     t,
-    finalState(['p1', 'p2'], null, pub({}, ['p1', 'p2']), { p1: { hadTriple: false, hadTwoJokers: true, hadRepeatedValue: false } }),
+    finalState(['p1', 'p2'], null, pub({}, ['p1', 'p2']), { p1: { hadTriple: false, hadTwoJokers: true, hadRepeatedValue: false, dealtSuits: [] } }),
     {}
   );
   assert(!!grants.p1?.includes('don_o_maldicion'), 'Don o maldición: se otorga con los 2 Jokers al repartir, gane o no');

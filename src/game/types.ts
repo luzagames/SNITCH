@@ -34,6 +34,18 @@ export function cardId(card: Card): string {
   return card.kind === 'joker' ? 'joker' : `${card.suit}-${card.rank}`;
 }
 
+// Compara dos manos como CONJUNTOS (el orden no importa) — se usa para
+// saber si a alguien le tocó exactamente su "mano favorita" guardada. Dos
+// Jokers cuentan como iguales entre sí (ver cardId), así que una mano
+// favorita con 2 Jokers matchea con cualquier mano que tenga 2 Jokers,
+// sin importar cuál "Joker físico" sea cada uno (no existe tal cosa).
+export function sameCardSet(a: Card[], b: Card[]): boolean {
+  if (a.length !== b.length) return false;
+  const idsA = a.map(cardId).sort();
+  const idsB = b.map(cardId).sort();
+  return idsA.every((id, i) => id === idsB[i]);
+}
+
 export interface Player {
   id: string;
   name: string;

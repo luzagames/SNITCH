@@ -1,7 +1,7 @@
 import { RankGemIcon } from './RankGemIcon';
 import type { Tier } from '../game/rank';
 
-export function RankChangeToast({ from, to }: { from: Tier; to: Tier }) {
+export function RankChangeToast({ from, to, delta }: { from: Tier; to: Tier; delta: number }) {
   const wentUp = to.minOrdinal > from.minOrdinal;
 
   return (
@@ -21,7 +21,10 @@ export function RankChangeToast({ from, to }: { from: Tier; to: Tier }) {
       }}
       role="status"
     >
-      <p style={{ margin: 0, fontSize: 13, color: to.light }}>{wentUp ? '¡SUBISTE DE RANGO!' : 'BAJASTE DE RANGO'}</p>
+      <p style={{ margin: 0, fontSize: 13, color: to.light }}>
+        {wentUp ? '¡SUBISTE DE RANGO!' : 'BAJASTE DE RANGO'} ({delta >= 0 ? '+' : ''}
+        {delta})
+      </p>
       <p style={{ margin: '4px 0 0', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
         <RankGemIcon light={from.light} dark={from.dark} size={16} />
         {from.name} → {to.name}

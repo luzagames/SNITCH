@@ -20,6 +20,7 @@ export function TableDemo() {
     alive: p.alive,
     connected: true,
     tier: null,
+    palette: { stroke: 'var(--snitch-accent)', fill: 'var(--snitch-fg)' },
     lives: p.lives,
     isYou: p.id === you.id,
     isCurrentTurn: p.id === current.id,

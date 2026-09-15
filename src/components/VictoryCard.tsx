@@ -40,8 +40,8 @@ function CardFace({ card }: { card: Card }) {
 
 export const VictoryCard = forwardRef<
   HTMLDivElement,
-  { winnerName: string; hand: Card[]; opponentNames: string[] }
->(function VictoryCard({ winnerName, hand, opponentNames }, ref) {
+  { winnerName: string; hand: Card[]; opponentNames: string[]; won: boolean }
+>(function VictoryCard({ winnerName, hand, opponentNames, won }, ref) {
   return (
     <div
       ref={ref}
@@ -64,13 +64,13 @@ export const VictoryCard = forwardRef<
         <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 56, color: '#f5f5f0' }}>SNITCH</span>
       </div>
 
-      <div style={{ border: '4px solid #e8291c', padding: 20, lineHeight: 0 }}>
-        <Avatar alive size={280} />
+      <div style={{ padding: 20, lineHeight: 0 }}>
+        <Avatar alive={won} size={280} glow glowColor={won ? '#e8291c' : '#4a4a4a'} />
       </div>
 
       <div style={{ textAlign: 'center' }}>
         <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 32, color: '#e8291c', margin: '0 0 16px' }}>
-          GANADOR
+          {won ? 'GANADOR' : 'PERDEDOR'}
         </p>
         <p style={{ fontSize: 72, color: '#f5f5f0', margin: 0, maxWidth: 950, wordBreak: 'break-word' }}>
           {winnerName}
@@ -78,7 +78,7 @@ export const VictoryCard = forwardRef<
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <p style={{ fontSize: 26, color: '#4a4a4a', letterSpacing: 2, margin: '0 0 16px' }}>GANÓ CON</p>
+        <p style={{ fontSize: 26, color: '#4a4a4a', letterSpacing: 2, margin: '0 0 16px' }}>{won ? 'GANÓ CON' : 'TENÍA'}</p>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
           {hand.map((card, i) => (
             <CardFace key={i} card={card} />
@@ -88,11 +88,14 @@ export const VictoryCard = forwardRef<
 
       {opponentNames.length > 0 && (
         <div style={{ textAlign: 'center', maxWidth: 900 }}>
-          <p style={{ fontSize: 26, color: '#4a4a4a', letterSpacing: 2, margin: '0 0 12px' }}>LE GANÓ A</p>
+          <p style={{ fontSize: 26, color: '#4a4a4a', letterSpacing: 2, margin: '0 0 12px' }}>{won ? 'LE GANÓ A' : 'DERROTADO POR'}</p>
           <p style={{ fontSize: 36, color: '#f5f5f0', margin: 0 }}>{opponentNames.join(' · ')}</p>
         </div>
       )}
 
+      <p style={{ fontSize: 28, color: '#4a4a4a', letterSpacing: 2, marginTop: 24 }}>
+        {won ? 'LAST PLAYER STANDING' : 'MEJOR SUERTE LA PRÓXIMA'}
+      </p>
     </div>
   );
 });

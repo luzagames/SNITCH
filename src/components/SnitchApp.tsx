@@ -13,7 +13,13 @@ import { RankingScreen } from './RankingScreen';
 import { Lobby } from './Lobby';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen';
 import { LoadingScreen } from './LoadingScreen';
+import { applyStoredSkinOnBoot } from '../hooks/useSkin';
 import '../styles/theme.css';
+
+// Se llama una sola vez, al cargar este módulo — antes de que React monte
+// nada — para que el skin guardado ya esté puesto cuando se pinta la
+// primera pantalla, sin un "flash" del skin por defecto.
+applyStoredSkinOnBoot();
 
 type Screen = 'home' | 'profile' | 'rules' | 'ranking' | 'lobby' | 'game';
 

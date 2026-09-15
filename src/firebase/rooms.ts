@@ -12,6 +12,8 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
+import { getStoredSkinId } from '../hooks/useSkin';
+import { DEFAULT_SKIN_ID } from '../game/skins';
 
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin O/0/I/1, se confunden
 
@@ -28,6 +30,11 @@ export interface RoomPlayer {
   isHost: boolean;
   isAnonymous: boolean;
   lastSeen: number;
+  // El skin que tenía elegido AL MOMENTO de crear/unirse a la sala — así
+  // los demás jugadores ven tu avatar con tus colores durante la
+  // partida. Es una foto fija: si cambiás el skin después de entrar a la
+  // sala, no se actualiza en vivo (ver la nota en useSkin.ts).
+  skinId: string;
 }
 
 export type JoinRoomError = 'not_found' | 'full' | 'already_started';
@@ -58,6 +65,7 @@ export async function createRoom(hostUid: string, hostName: string, isAnonymous:
       name: hostName,
       isHost: true,
       isAnonymous,
+      skinId: getStoredSkinId(),
       joinedAt: serverTimestamp(),
       lastSeen: Date.now(),
     });
@@ -101,6 +109,7 @@ export async function joinRoom(
     name,
     isHost: false,
     isAnonymous,
+    skinId: getStoredSkinId(),
     joinedAt: serverTimestamp(),
     lastSeen: Date.now(),
   });
@@ -144,7 +153,7 @@ export function buildInviteLink(code: string): string {
 // al portapapeles y avisa con el valor de retorno.
 export async function shareInviteLink(code: string, hostName: string): Promise<'shared' | 'copied'> {
   const link = buildInviteLink(code);
-  const text = `¡Unite a mi partida de SNITCH! Sala de ${hostName}.`;
+  const text = `¡Unite a mi partida de SNITCH! Sala de ${hostName}. Código: ${code}`;
 
   if (navigator.share) {
     try {
@@ -154,7 +163,7 @@ export async function shareInviteLink(code: string, hostName: string): Promise<'
       // Si cancela el selector nativo, caemos al portapapeles igual.
     }
   }
-  await navigator.clipboard.writeText(link);
+  await navigator.clipboard.writeText(`${text} ${link}`);
   return 'copied';
 }
 
@@ -167,6 +176,7 @@ export function subscribeToPlayers(code: string, callback: (players: RoomPlayer[
       isHost: d.data().isHost as boolean,
       isAnonymous: (d.data().isAnonymous as boolean) ?? false,
       lastSeen: (d.data().lastSeen as number) ?? 0,
+      skinId: (d.data().skinId as string) ?? DEFAULT_SKIN_ID,
     }));
     callback(players);
   });

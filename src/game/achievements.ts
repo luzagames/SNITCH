@@ -15,7 +15,8 @@ export type AchievementId =
   | 'tipo_humilde'
   | 'don_o_maldicion'
   | 'pedazo_de_nashe'
-  | 'muy_govir';
+  | 'muy_govir'
+  | 'en_mi_salsa';
 
 export type AchievementRarity = 'common' | 'rare' | 'legendary';
 
@@ -49,4 +50,10 @@ export const ACHIEVEMENTS: AchievementDefinition[] = [
     rarity: 'legendary',
   },
   { id: 'muy_govir', name: 'Muy Govir', description: 'Quedá eliminado primero en una partida de 6.', rarity: 'common' },
+  {
+    id: 'en_mi_salsa',
+    name: 'En mi salsa',
+    description: 'Te tocaron repartidas exactamente las 3 cartas que elegiste como tu mano favorita.',
+    rarity: 'legendary',
+  },
 ];

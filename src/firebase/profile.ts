@@ -4,6 +4,8 @@ import type { MatchStatsAccumulator } from './gameSyncLogic';
 import type { AchievementId } from '../game/achievements';
 import { DEFAULT_SKILL, skillOrdinal, updateSkillRatings, getTier } from '../game/rank';
 import type { SkillRating, Tier } from '../game/rank';
+import type { Card } from '../game/types';
+import { sameCardSet } from '../game/types';
 
 export interface UserProfile {
   username: string;
@@ -31,6 +33,11 @@ export interface UserProfile {
   mu: number;
   sigma: number;
   skillRating: number;
+  // Las 3 cartas que el jugador eligió a mano como su "mano favorita" —
+  // no se calcula sola, la elige la persona desde su perfil (ver
+  // FavoriteHandPicker.tsx). Vacío (0 cartas) significa que todavía no
+  // eligió ninguna. El logro "En mi salsa" se compara contra esto.
+  favoriteCards: Card[];
 }
 
 const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
@@ -51,6 +58,7 @@ const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
   mu: DEFAULT_SKILL.mu,
   sigma: DEFAULT_SKILL.sigma,
   skillRating: skillOrdinal(DEFAULT_SKILL),
+  favoriteCards: [],
 };
 
 function profileRef(uid: string) {
@@ -135,11 +143,19 @@ function fillDefaults(raw: Partial<UserProfile>): UserProfile {
     mu,
     sigma,
     skillRating: raw.skillRating !== undefined ? numOr0(raw.skillRating) : skillOrdinal({ mu, sigma }),
+    favoriteCards: Array.isArray(raw.favoriteCards) ? raw.favoriteCards : [],
   };
 }
 
 export async function updateUsername(uid: string, username: string): Promise<void> {
   await updateDoc(profileRef(uid), { username });
+}
+
+// Guarda la mano favorita elegida a mano — como máximo 3 cartas, el resto
+// se recorta por las dudas (la UI ya no debería dejar elegir más, pero
+// nunca está de más no confiar ciegamente en lo que llega).
+export async function updateFavoriteCards(uid: string, cards: Card[]): Promise<void> {
+  await updateDoc(profileRef(uid), { favoriteCards: cards.slice(0, 3) });
 }
 
 // Devuelve el número tal cual si es válido, o 0 si es undefined (perfiles
@@ -173,11 +189,14 @@ function computeLifetimeAchievements(updated: UserProfile): AchievementId[] {
 // de esta partida, en el orden real de llegada (1ro a último), tomados
 // como FOTO FIJA al momento de arrancar — no el rating actual de cada
 // uno, que puede haber cambiado mientras tanto. myPlacementIndex es la
-// posición de ESTE jugador dentro de esa lista (0 = ganador).
+// posición de ESTE jugador dentro de esa lista (0 = ganador). dealtHand
+// es la mano completa que te tocó esa partida (foto fija al repartir),
+// para poder compararla contra tu mano favorita guardada.
 export interface RecordMatchResult {
   newlyUnlocked: AchievementId[];
   oldTier: Tier;
   newTier: Tier;
+  ratingDelta: number;
 }
 
 export async function recordMatchStats(
@@ -186,12 +205,14 @@ export async function recordMatchStats(
   stats: MatchStatsAccumulator,
   matchAchievements: AchievementId[],
   allSkillsInPlacementOrder: SkillRating[],
-  myPlacementIndex: number
+  myPlacementIndex: number,
+  dealtHand: Card[]
 ): Promise<RecordMatchResult> {
   const ref = profileRef(uid);
   let newlyUnlocked: AchievementId[] = [];
   let oldTier: Tier = getTier(skillOrdinal(DEFAULT_SKILL));
   let newTier: Tier = oldTier;
+  let ratingDelta = 0;
 
   const updatedSkills = updateSkillRatings(allSkillsInPlacementOrder);
   const myNewSkill = updatedSkills[myPlacementIndex];
@@ -203,13 +224,19 @@ export async function recordMatchStats(
 
     const newCurrentStreak = won ? numOr0(prev.currentStreak) + 1 : 0;
     const newBestStreak = Math.max(numOr0(prev.bestStreak), newCurrentStreak);
-    oldTier = getTier(
-      skillOrdinal({
-        mu: prev.mu !== undefined ? numOr0(prev.mu) : DEFAULT_SKILL.mu,
-        sigma: prev.sigma !== undefined ? numOr0(prev.sigma) : DEFAULT_SKILL.sigma,
-      })
-    );
+    const oldSkill: SkillRating = {
+      mu: prev.mu !== undefined ? numOr0(prev.mu) : DEFAULT_SKILL.mu,
+      sigma: prev.sigma !== undefined ? numOr0(prev.sigma) : DEFAULT_SKILL.sigma,
+    };
+    oldTier = getTier(skillOrdinal(oldSkill));
     newTier = getTier(skillOrdinal(myNewSkill));
+    ratingDelta = Math.round(skillOrdinal(myNewSkill) - skillOrdinal(oldSkill));
+
+    // "En mi salsa": tenés que tener las 3 favoritas elegidas de antes, Y
+    // que la mano que te tocó ESTA partida sea exactamente esa (sin
+    // importar el orden).
+    const favoriteCards = Array.isArray(prev.favoriteCards) ? prev.favoriteCards : [];
+    const gotEnMiSalsa = favoriteCards.length === 3 && sameCardSet(dealtHand, favoriteCards);
 
     const updated: UserProfile = {
       ...prev,
@@ -229,10 +256,12 @@ export async function recordMatchStats(
       mu: myNewSkill.mu,
       sigma: myNewSkill.sigma,
       skillRating: skillOrdinal(myNewSkill),
+      favoriteCards,
     };
 
     const lifetimeUnlocked = computeLifetimeAchievements(updated);
     const allCandidates = [...matchAchievements, ...lifetimeUnlocked];
+    if (gotEnMiSalsa) allCandidates.push('en_mi_salsa');
     const already = new Set(updated.achievements);
     newlyUnlocked = allCandidates.filter((id) => !already.has(id));
 
@@ -244,7 +273,7 @@ export async function recordMatchStats(
     tx.set(ref, updated);
   });
 
-  return { newlyUnlocked, oldTier, newTier };
+  return { newlyUnlocked, oldTier, newTier, ratingDelta };
 }
 
 // Se mantiene por si algo todavía la usa en algún lado, pero

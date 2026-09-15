@@ -76,15 +76,15 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
           }}
         >
           {RANK_ORDER.map((rank) => {
-            const color = selectedSuit && isRedSuit(selectedSuit) ? 'var(--snitch-accent)' : 'var(--snitch-bg)';
+            const color = selectedSuit && isRedSuit(selectedSuit) ? 'var(--snitch-accent)' : 'var(--snitch-card-ink)';
             return (
               <button
                 key={rank}
                 onClick={() => pickValue(rank)}
                 style={{
                   ...tileBase,
-                  background: 'var(--snitch-fg)',
-                  borderColor: 'var(--snitch-bg)',
+                  background: 'var(--snitch-card-paper)',
+                  borderColor: 'var(--snitch-card-ink)',
                   minWidth: 42,
                   minHeight: 44,
                   fontSize: 16,
@@ -95,7 +95,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
                   gap: 1,
                 }}
               >
-                <span style={{ color: 'var(--snitch-bg)' }}>{RANK_LABELS[rank]}</span>
+                <span style={{ color: 'var(--snitch-card-ink)' }}>{RANK_LABELS[rank]}</span>
                 {selectedSuit && <SuitIcon suit={selectedSuit} color={color} size={14} />}
               </button>
             );
@@ -112,7 +112,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
           onClick={() => onPick({ kind: 'joker' })}
           style={{
             ...tileBase,
-            background: 'var(--snitch-fg)',
+            background: 'var(--snitch-card-paper)',
             borderColor: 'var(--snitch-accent)',
             minWidth: 50,
             minHeight: 44,
@@ -124,7 +124,7 @@ export function KillPicker({ onPick, onCancel }: { onPick: (card: Card) => void;
           }}
           aria-label="Joker"
         >
-          <Avatar alive size={26} />
+          <Avatar alive size={26} className="snitch-joker-outline" />
         </button>
       </div>
 

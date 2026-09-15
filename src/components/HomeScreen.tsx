@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createRoom, joinRoom, type JoinRoomError } from '../firebase/rooms';
 import { signOutUser } from '../firebase/auth';
+import { SkinPicker } from './SkinPicker';
+import { UpgradeAccountModal } from './UpgradeAccountModal';
 
 const ERROR_MESSAGES: Record<JoinRoomError, string> = {
-  not_found: 'No existe una sala con ese código.',
-  full: 'Esa sala ya está llena (6 jugadores).',
-  already_started: 'Esa partida ya empezó.',
+  not_found: 'Ese código no lleva a ninguna sala. Revisalo bien.',
+  full: 'Esa sala ya está a full (6 detectives) — no entra ni uno más.',
+  already_started: 'Esa partida ya arrancó sin vos. Buscá otra sala o armá la tuya.',
 };
 
 export function HomeScreen({
@@ -30,6 +32,9 @@ export function HomeScreen({
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSkinPicker, setShowSkinPicker] = useState(false);
+  const [showSkinDisclaimer, setShowSkinDisclaimer] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Si entraste por un link compartido (con ?join=CODIGO), te ahorramos
   // tener que escribir el código a mano.
@@ -81,6 +86,14 @@ export function HomeScreen({
       onEnterRoom(joinCode.trim().toUpperCase());
     } else {
       setError(ERROR_MESSAGES[result.error]);
+    }
+  }
+
+  function handleThemeClick() {
+    if (isAnonymous) {
+      setShowSkinDisclaimer(true);
+    } else {
+      setShowSkinPicker(true);
     }
   }
 
@@ -176,10 +189,77 @@ export function HomeScreen({
       )}
 
       <div>
+        <button onClick={handleThemeClick} style={{ marginTop: 12, fontSize: 13 }}>
+          🎨 TEMA
+        </button>
+      </div>
+
+      {isAnonymous && (
+        <div>
+          <button onClick={() => setShowUpgradeModal(true)} style={{ marginTop: 12, fontSize: 13 }}>
+            CREAR CUENTA
+          </button>
+        </div>
+      )}
+
+      <div>
         <button onClick={() => signOutUser()} style={{ marginTop: 12, fontSize: 13, color: 'var(--snitch-muted)' }}>
           CERRAR SESIÓN
         </button>
       </div>
+
+      {showSkinPicker && <SkinPicker onClose={() => setShowSkinPicker(false)} />}
+
+      {showSkinDisclaimer && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setShowSkinDisclaimer(false)}
+        >
+          <div
+            className="snitch-panel-enter"
+            style={{
+              background: 'var(--snitch-bg)',
+              border: '2px solid var(--snitch-accent)',
+              padding: 20,
+              maxWidth: 300,
+              width: '100%',
+              textAlign: 'center',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: 16, margin: '0 0 16px' }}>
+              Necesitás una cuenta para elegir un skin — jugando como anónimo no se puede guardar tu elección.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                className="snitch-btn-accent"
+                onClick={() => {
+                  setShowSkinDisclaimer(false);
+                  setShowUpgradeModal(true);
+                }}
+              >
+                CREAR CUENTA
+              </button>
+              <button onClick={() => setShowSkinDisclaimer(false)} style={{ fontSize: 13, color: 'var(--snitch-muted)' }}>
+                Ahora no
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <UpgradeAccountModal onClose={() => setShowUpgradeModal(false)} onDone={() => setShowUpgradeModal(false)} />
+      )}
     </div>
   );
 }

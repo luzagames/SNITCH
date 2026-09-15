@@ -44,10 +44,10 @@ export function Lobby({
     try {
       const playersWithSkill = await Promise.all(
         players.map(async (p) => {
-          if (p.isAnonymous) return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill: DEFAULT_SKILL };
+          if (p.isAnonymous) return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill: DEFAULT_SKILL, skinId: p.skinId };
           const profile = await getProfile(p.id).catch(() => null);
           const skill = profile ? { mu: profile.mu, sigma: profile.sigma } : DEFAULT_SKILL;
-          return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill };
+          return { id: p.id, name: p.name, isAnonymous: p.isAnonymous, skill, skinId: p.skinId };
         })
       );
       await dealAndStartGame(roomCode, playersWithSkill);

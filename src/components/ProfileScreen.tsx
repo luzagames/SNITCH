@@ -6,6 +6,8 @@ import { ACHIEVEMENTS } from '../game/achievements';
 import type { AchievementRarity } from '../game/achievements';
 import { getTier, getNextTier, skillOrdinal } from '../game/rank';
 import { RankGemIcon } from './RankGemIcon';
+import { CardSlot } from './CardSlot';
+import { FavoriteHandPicker } from './FavoriteHandPicker';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
@@ -24,6 +26,7 @@ export function ProfileScreen({
   const [nameInput, setNameInput] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showFavoriteHandPicker, setShowFavoriteHandPicker] = useState(false);
 
   useEffect(() => {
     getProfileAndRepair(uid)
@@ -74,6 +77,7 @@ export function ProfileScreen({
   const killSharePct = totalActions > 0 ? Math.round((profile.killAttempts / totalActions) * 100) : 0;
   const askSharePct = totalActions > 0 ? Math.round((profile.askCount / totalActions) * 100) : 0;
   const passSharePct = totalActions > 0 ? Math.round((profile.passCount / totalActions) * 100) : 0;
+  const favoriteCards = profile.favoriteCards;
 
   const ordinal = skillOrdinal({ mu: profile.mu, sigma: profile.sigma });
   const tier = getTier(ordinal);
@@ -193,6 +197,39 @@ export function ProfileScreen({
         <StatRow label="% PREGUNTAR" value={totalActions > 0 ? `${askSharePct}%` : '—'} />
         <StatRow label="% PASAR" value={totalActions > 0 ? `${passSharePct}%` : '—'} />
       </StatBlock>
+
+      <SectionTitle>Mano favorita</SectionTitle>
+      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        {favoriteCards.length === 3 ? (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 10 }}>
+            {favoriteCards.map((card, i) => (
+              <CardSlot key={i} state={{ kind: 'faceup', card }} size={48} />
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize: 14, color: 'var(--snitch-muted)', margin: '0 0 10px' }}>
+            Todavía no elegiste tu mano favorita.
+          </p>
+        )}
+        <button onClick={() => setShowFavoriteHandPicker(true)} style={{ fontSize: 13 }}>
+          {favoriteCards.length === 3 ? 'CAMBIAR' : 'ELEGIR MANO FAVORITA'}
+        </button>
+        <p style={{ fontSize: 11, color: 'var(--snitch-muted)', marginTop: 8, maxWidth: 260, marginInline: 'auto' }}>
+          Si te tocan repartidas exactamente estas 3 cartas en una partida, desbloqueás "En mi salsa".
+        </p>
+      </div>
+
+      {showFavoriteHandPicker && (
+        <FavoriteHandPicker
+          uid={uid}
+          initialCards={favoriteCards}
+          onClose={() => setShowFavoriteHandPicker(false)}
+          onSaved={(cards) => {
+            setProfile((prev) => (prev ? { ...prev, favoriteCards: cards } : prev));
+            setShowFavoriteHandPicker(false);
+          }}
+        />
+      )}
 
       <SectionTitle>{`Logros (${profile.achievements.length}/${ACHIEVEMENTS.length})`}</SectionTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320, margin: '0 auto' }}>

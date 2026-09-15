@@ -32,7 +32,7 @@ function handRef(roomCode: string, uid: string) {
 }
 
 // Se llama UNA vez, del lado del host, cuando arranca la partida.
-export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating }[]) {
+export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string }[]) {
   const { state, hands } = buildInitialSyncedState(players);
 
   for (const [uid, cards] of Object.entries(hands)) {

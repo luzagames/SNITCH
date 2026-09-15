@@ -1,6 +1,6 @@
 import type { Card, Rank, Suit } from './types';
 
-const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
+export const SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
 const RANKS: Rank[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
 
 // Universo de cartas "seleccionables": las 52 estándar + 1 Joker

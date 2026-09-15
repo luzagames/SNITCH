@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Avatar } from './Avatar';
 import { Hearts } from './Hearts';
 import { CardSlot } from './CardSlot';
@@ -16,6 +17,10 @@ export interface PlayerSeatData {
   isCurrentTurn: boolean;
   // null para jugadores anónimos (nunca tienen un rating real guardado).
   tier: Tier | null;
+  // Los colores del skin que ESE jugador tenía elegido al arrancar la
+  // partida — así cada uno se ve en la mesa con su propio estilo, sin
+  // importar el skin que tengas vos aplicado en tu pantalla.
+  palette: { stroke: string; fill: string };
 }
 
 export function PlayerSeat({ player, featured = false }: { player: PlayerSeatData; featured?: boolean }) {
@@ -25,11 +30,16 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
   const dimmed = !player.alive || !player.connected;
 
   const showTurnGlow = player.isCurrentTurn && player.connected;
+  // Le pasamos el acento de ESTE jugador como variable CSS, para que la
+  // animación de pulso (definida en theme.css) lo use en vez del acento
+  // del skin activo en tu propia pantalla.
+  const seatStyle = { '--seat-accent': player.palette.stroke } as CSSProperties;
 
   return (
     <div
       className="snitch-seat-dim-transition"
       style={{
+        ...seatStyle,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -39,7 +49,12 @@ export function PlayerSeat({ player, featured = false }: { player: PlayerSeatDat
       }}
     >
       <div style={{ padding: 4, lineHeight: 0 }}>
-        <Avatar alive={player.alive} size={avatarSize} className={showTurnGlow ? 'snitch-turn-pulse' : undefined} />
+        <Avatar
+          alive={player.alive}
+          size={avatarSize}
+          palette={player.palette}
+          className={showTurnGlow ? 'snitch-turn-pulse' : undefined}
+        />
       </div>
 
       {/* El asiento destacado (vos) no muestra su propia fila de cartas acá

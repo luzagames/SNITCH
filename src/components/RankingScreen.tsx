@@ -3,6 +3,7 @@ import { getLeaderboard, LEADERBOARD_CATEGORIES } from '../firebase/profile';
 import type { LeaderboardCategory, LeaderboardEntry } from '../firebase/profile';
 import { getTier } from '../game/rank';
 import { RankGemIcon } from './RankGemIcon';
+import { MedalIcon } from './MedalIcon';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
@@ -79,6 +80,7 @@ export function RankingScreen({ uid, onBack }: { uid: string; onBack: () => void
                 {entry.uid === uid ? ' (vos)' : ''}
               </span>
               <span style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {category === 'skillRating' && i < 3 && <MedalIcon place={(i + 1) as 1 | 2 | 3} size={18} />}
                 {category === 'skillRating' && <RankGemIcon light={getTier(entry.value).light} dark={getTier(entry.value).dark} size={16} />}
                 {displayValue(entry)}
               </span>
