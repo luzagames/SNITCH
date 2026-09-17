@@ -9,6 +9,7 @@ import type {
   GameState,
   KillResult,
   Player,
+  Suit,
 } from './types';
 
 export const STARTING_LIVES = 4;
@@ -225,6 +226,14 @@ function matchesQuestion(hand: Card[], q: AskQuestion, hadRepeatedValueAtDeal?: 
       );
     case 'OF_SUIT':
       return hand.some((c) => c.kind === 'standard' && c.suit === q.suit);
+    case 'OF_COLOR': {
+      // No importamos isRedSuit de game/display.ts a propósito: ese
+      // archivo ya importa DE rules.ts (STARTING_LIVES), así que traerlo
+      // para acá armaría un ciclo de imports. Es la misma cuenta de 2
+      // líneas, así que la repetimos en vez de arriesgar eso.
+      const isRed = (suit: Suit) => suit === 'hearts' || suit === 'diamonds';
+      return hand.some((c) => c.kind === 'standard' && (q.color === 'red' ? isRed(c.suit) : !isRed(c.suit)));
+    }
     case 'OF_VALUE':
       return hand.some((c) => c.kind === 'standard' && c.rank === (q.value as number));
     case 'REPEATED_VALUE_IN_HAND': {

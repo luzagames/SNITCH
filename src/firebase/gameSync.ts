@@ -32,7 +32,7 @@ function handRef(roomCode: string, uid: string) {
 }
 
 // Se llama UNA vez, del lado del host, cuando arranca la partida.
-export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string }[]) {
+export async function dealAndStartGame(roomCode: string, players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string; headId: string }[]) {
   const { state, hands } = buildInitialSyncedState(players);
 
   for (const [uid, cards] of Object.entries(hands)) {
@@ -60,6 +60,15 @@ export function subscribeToOwnHand(roomCode: string, uid: string, callback: (car
 // puede escribirlo directo, como ya hacemos con el resto de la sala.
 export async function announcePlayerLeft(roomCode: string, playerName: string): Promise<void> {
   await updateDoc(gameStateRef(roomCode), { lastMessage: `${playerName} abandonó la partida.` });
+}
+
+// Mandar un "globito" de chat: igual que announcePlayerLeft, no pasa por
+// el árbitro — cualquier jugador de la sala puede escribirlo directo, en
+// cualquier momento (no hace falta que sea su turno).
+export async function sendEmote(roomCode: string, playerId: string, phraseId: string): Promise<void> {
+  await updateDoc(gameStateRef(roomCode), {
+    liveEmoteEvent: { playerId, phraseId, sentAt: Date.now() },
+  });
 }
 
 // Cualquier jugador llama esto en su turno: no resuelve nada localmente,

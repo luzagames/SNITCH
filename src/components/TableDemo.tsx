@@ -19,7 +19,7 @@ export function TableDemo() {
     name: p.name,
     alive: p.alive,
     connected: true,
-    tier: null,
+    tier: null, activeEmoteText: null, activeEmoteKey: null, headId: 'original',
     palette: { stroke: 'var(--snitch-accent)', fill: 'var(--snitch-fg)' },
     lives: p.lives,
     isYou: p.id === you.id,

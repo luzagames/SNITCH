@@ -3,6 +3,7 @@ import { cardLabel } from '../game/display';
 import { questionLabel } from '../game/askQuestions';
 import type { AskQuestion, Card, GameState } from '../game/types';
 import { cardId } from '../game/types';
+import { analyzeHand } from '../game/deck';
 import type { SkillRating } from '../game/rank';
 import type { AchievementId } from '../game/achievements';
 
@@ -19,6 +20,9 @@ export interface PlayerPublicInfo {
   // avatar de cada jugador se dibuja con SUS colores, no con los del
   // skin de quien está mirando la pantalla.
   skinId: string;
+  // La cabeza coleccionable que tenía puesta AL MOMENTO de arrancar la
+  // partida — mismo criterio que skinId, foto fija.
+  headId: string;
 }
 
 export type PendingAction =
@@ -38,6 +42,13 @@ export interface DealFlags {
   hadTriple: boolean; // las 3 cartas iniciales tenían el mismo número
   hadTwoJokers: boolean; // te tocaron los 2 Jokers
   hadRepeatedValue: boolean; // al menos 2 de las 3 cartas iniciales compartían número
+  hadPair: boolean; // EXACTAMENTE 2 compartían número (no las 3)
+  isStraight: boolean; // 3 números consecutivos, cualquier palo
+  isStraightFlush: boolean; // escalera + mismo palo
+  isRoyalStraightFlush: boolean; // A, K y Q del mismo palo específicamente
+  isTripleSixes: boolean; // la Pierna específica de "El Diablo"
+  isFlush: boolean; // las 3 cartas del mismo palo (sin importar el número)
+  hasSixSeven: boolean; // tiene un 6 Y un 7 en la mano
   // La mano completa tal como te la repartieron (foto fija — no cambia
   // aunque después pierdas cartas durante la partida). Se usa para el
   // logro "En mi salsa": si coincide exactamente con tu mano favorita
@@ -48,6 +59,12 @@ export interface DealFlags {
 export interface LiveAchievementEvent {
   grants: Record<string, AchievementId[]>; // solo los logros NUEVOS de este momento
   eventAt: number; // timestamp, para que el cliente detecte "esto es nuevo"
+}
+
+export interface LiveEmoteEvent {
+  playerId: string;
+  phraseId: string;
+  sentAt: number; // timestamp, para que el cliente detecte "esto es nuevo"
 }
 
 export interface SyncedGameState {
@@ -78,6 +95,11 @@ export interface SyncedGameState {
   // Se actualiza cada vez que alguien desbloquea un logro NUEVO durante la
   // partida (no solo al final) — es lo que dispara el popup en pantalla.
   liveAchievementEvent: LiveAchievementEvent | null;
+  // El último "globito" de chat enviado por cualquier jugador — se
+  // actualiza con un updateDoc DIRECTO (ver sendEmote en gameSync.ts), sin
+  // pasar por el árbitro ni por resolver una acción de juego, porque
+  // mandar un emote no es un turno.
+  liveEmoteEvent: LiveEmoteEvent | null;
 }
 
 // ------------------------------------------------------------------
@@ -176,7 +198,7 @@ export function finalizeBluffStats(
 }
 
 // Arma el SyncedGameState inicial (llamado al arrancar la partida).
-export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string }[]): {
+export function buildInitialSyncedState(players: { id: string; name: string; isAnonymous: boolean; skill: SkillRating; skinId: string; headId: string }[]): {
   state: Omit<SyncedGameState, 'pendingAction'>;
   hands: Record<string, Card[]>;
 } {
@@ -187,10 +209,12 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
   const isAnonymous: Record<string, boolean> = {};
   const skillById: Record<string, SkillRating> = {};
   const skinById: Record<string, string> = {};
+  const headById: Record<string, string> = {};
   for (const p of players) {
     isAnonymous[p.id] = p.isAnonymous;
     skillById[p.id] = p.skill;
     skinById[p.id] = p.skinId;
+    headById[p.id] = p.headId;
   }
   for (const p of engineState.players) {
     playersPublic[p.id] = {
@@ -200,15 +224,25 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
       handCount: p.hand.length,
       skill: skillById[p.id],
       skinId: skinById[p.id],
+      headId: headById[p.id],
     };
     hands[p.id] = p.hand;
 
     const jokerCount = p.hand.filter((c) => c.kind === 'joker').length;
-    const standardCards = p.hand.filter((c) => c.kind === 'standard');
-    const standardRanks = standardCards.map((c) => c.rank);
-    const hadTriple = p.hand.length === 3 && standardRanks.length === 3 && new Set(standardRanks).size === 1;
-    const hadRepeatedValue = new Set(standardRanks).size < standardRanks.length;
-    dealFlags[p.id] = { hadTriple, hadTwoJokers: jokerCount >= 2, hadRepeatedValue, dealtHand: [...p.hand] };
+    const analysis = analyzeHand(p.hand);
+    dealFlags[p.id] = {
+      hadTriple: analysis.hadTriple,
+      hadTwoJokers: jokerCount >= 2,
+      hadRepeatedValue: analysis.hadRepeatedValue,
+      hadPair: analysis.hadPair,
+      isStraight: analysis.isStraight,
+      isStraightFlush: analysis.isStraightFlush,
+      isRoyalStraightFlush: analysis.isRoyalStraightFlush,
+      isTripleSixes: analysis.isTripleSixes,
+      isFlush: analysis.isFlush,
+      hasSixSeven: analysis.hasSixSeven,
+      dealtHand: [...p.hand],
+    };
   }
   return {
     state: {
@@ -227,6 +261,7 @@ export function buildInitialSyncedState(players: { id: string; name: string; isA
       finalStats: null,
       finalAchievements: null,
       liveAchievementEvent: null,
+      liveEmoteEvent: null,
     },
     hands,
   };
@@ -324,6 +359,7 @@ export function applyPendingAction(
       handCount: p.hand.length,
       skill: gs.playersPublic[p.id].skill,
       skinId: gs.playersPublic[p.id].skinId,
+      headId: gs.playersPublic[p.id].headId,
     };
     const before = handsByUid[p.id] ?? [];
     if (before.length !== p.hand.length) {
@@ -348,6 +384,7 @@ export function applyPendingAction(
       finalStats: gs.finalStats,
       finalAchievements: gs.finalAchievements,
       liveAchievementEvent: gs.liveAchievementEvent,
+      liveEmoteEvent: gs.liveEmoteEvent,
     },
     changedHands,
     statsEvent,
@@ -485,6 +522,34 @@ export function computeMatchAchievements(
       grant(uid, 'pedazo_de_nashe');
     }
     if (playerCount === 6 && tracker.firstEliminatedPlayerId === uid) grant(uid, 'muy_govir');
+
+    // --- Patrones de la mano repartida (sin importar si ganaste o no) ---
+    if (deal?.hadPair) grant(uid, 'par');
+    if (deal?.hadTriple) grant(uid, 'pierna');
+    if (deal?.isStraight) grant(uid, 'escalera');
+    if (deal?.isStraightFlush) grant(uid, 'escalera_color');
+    if (deal?.isRoyalStraightFlush) grant(uid, 'escalera_real');
+    if (deal?.isTripleSixes) grant(uid, 'el_diablo');
+    if (deal?.isFlush) grant(uid, 'color');
+    if (deal?.hasSixSeven) grant(uid, 'six_seven');
+
+    if (won && playerCount === 6) grant(uid, 'son_mas_mejor');
+  }
+
+  // Aguafiestas: en una mesa de 3+, exactamente UNO no arrancó con KILL
+  // (todos los demás sí) — ese es el que se lo gana. Solo cuenta si TODOS
+  // los jugadores llegaron a tener su primer turno (si la partida terminó
+  // antes de que le tocara a alguien, no sabemos qué habría hecho, así
+  // que no lo contamos ni a favor ni en contra).
+  if (playerCount >= 3) {
+    const withFirstAction = playerIds.filter((id) => tracker.firstActionType[id] !== undefined);
+    if (withFirstAction.length === playerCount) {
+      const nonKillStarters = withFirstAction.filter((id) => tracker.firstActionType[id] !== 'kill');
+      if (nonKillStarters.length === 1) {
+        const aguafiestas = nonKillStarters[0];
+        if (!finalState.isAnonymous[aguafiestas]) grant(aguafiestas, 'aguafiestas');
+      }
+    }
   }
 
   if (playerCount === 6 && playerIds.every((id) => tracker.firstActionType[id] === 'kill')) {

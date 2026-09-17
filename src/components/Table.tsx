@@ -16,7 +16,7 @@ const RADIUS_Y = 210;
 // real de turno. Coincide con el asiento agrandado (featured), que ahora
 // no tiene fila de cartas propia (la mano se ve aparte, en "TU MANO"),
 // así que es más compacto en alto pese al avatar más grande.
-const YOU_Y = CENTER_Y + 175;
+const YOU_Y = CENTER_Y + 200;
 
 // Los demás jugadores se distribuyen en un arco arriba de la mesa (no toda
 // la elipse, solo la mitad superior), centrado en la posición "12 en punto"

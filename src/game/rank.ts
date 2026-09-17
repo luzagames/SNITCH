@@ -56,6 +56,19 @@ export function getNextTier(currentTierId: string): Tier | null {
   return TIERS[index + 1];
 }
 
+// Qué porcentaje del camino hacia el próximo rango ya recorriste — 100 si
+// ya estás en el rango máximo (no hay "próximo"). Bronce (el rango más
+// bajo) no tiene un piso real — su minOrdinal es -Infinity, porque "no
+// hay nada más abajo" — así que ahí usamos 0 como piso en su lugar (es el
+// ordinal de arranque real de una cuenta nueva). Sin este caso especial,
+// la cuenta da Infinity/Infinity = NaN para cualquier cuenta que todavía
+// esté en Bronce, cuenta nueva incluida.
+export function computeTierProgress(ordinal: number, tier: Tier, nextTier: Tier | null): number {
+  if (!nextTier) return 100;
+  const floor = tier.minOrdinal === -Infinity ? 0 : tier.minOrdinal;
+  return Math.min(100, Math.max(0, Math.round(((ordinal - floor) / (nextTier.minOrdinal - floor)) * 100)));
+}
+
 // Actualiza el rating de TODOS los participantes de una partida a la vez,
 // dado el orden final de llegada (el primero de la lista es el ganador).
 // Devuelve los ratings actualizados en ese MISMO orden.

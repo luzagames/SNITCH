@@ -13,7 +13,8 @@ import { RankingScreen } from './RankingScreen';
 import { Lobby } from './Lobby';
 import { MultiplayerGameScreen } from './MultiplayerGameScreen';
 import { LoadingScreen } from './LoadingScreen';
-import { applyStoredSkinOnBoot } from '../hooks/useSkin';
+import { applyStoredSkinOnBoot, useSkin } from '../hooks/useSkin';
+import { getSkinById, DEFAULT_SKIN_ID } from '../game/skins';
 import '../styles/theme.css';
 
 // Se llama una sola vez, al cargar este módulo — antes de que React monte
@@ -23,6 +24,11 @@ applyStoredSkinOnBoot();
 
 type Screen = 'home' | 'profile' | 'rules' | 'ranking' | 'lobby' | 'game';
 
+interface NavState {
+  screen: Screen;
+  roomCode: string | null;
+}
+
 export function SnitchApp() {
   const { user, checked, error } = useAuthState();
   const [screen, setScreen] = useState<Screen>('home');
@@ -31,6 +37,49 @@ export function SnitchApp() {
   const [needsUsername, setNeedsUsername] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [reconnectChecked, setReconnectChecked] = useState(false);
+  const { skinId, setSkinId } = useSkin();
+
+  // Va a una pantalla nueva, agregando una entrada al historial del
+  // navegador — así el botón de atrás (física o del navegador) tiene
+  // algo real a donde volver, en vez de sacarte de la página entera.
+  function navigate(next: Screen, nextRoomCode: string | null = roomCode) {
+    setScreen(next);
+    setRoomCode(nextRoomCode);
+    window.history.pushState({ screen: next, roomCode: nextRoomCode } satisfies NavState, '');
+  }
+
+  // Para "volver" (botones de "‹ Volver" adentro de la app) — en vez de
+  // ir a mano a la pantalla anterior, le pedimos al navegador que retroceda
+  // de verdad en su propio historial. Así el botón de atrás del navegador
+  // y el botón de "Volver" de la app hacen EXACTAMENTE lo mismo, y nunca
+  // se desincronizan entre sí.
+  function goBack() {
+    window.history.back();
+  }
+
+  // Deja plantada una entrada base de "estamos en Home" apenas arranca la
+  // app, para que la PRIMERA vez que alguien toque atrás ya tenga algo
+  // consistente con qué comparar (si no, event.state llega null).
+  useEffect(() => {
+    window.history.replaceState({ screen: 'home', roomCode: null } satisfies NavState, '');
+  }, []);
+
+  useEffect(() => {
+    function onPopState(event: PopStateEvent) {
+      const state = event.state as NavState | null;
+      if (state) {
+        setScreen(state.screen);
+        setRoomCode(state.roomCode);
+      } else {
+        // Retrocedimos más allá de la primera entrada que plantamos — no
+        // debería pasar normalmente, pero por las dudas volvemos al inicio
+        // en vez de dejar la pantalla en un estado sin sentido.
+        setScreen('home');
+      }
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     if (!user || user.isAnonymous) {
@@ -45,6 +94,22 @@ export function SnitchApp() {
       })
       .finally(() => setProfileLoading(false));
   }, [user]);
+
+  // Si el skin que tenías guardado en este navegador ya no te corresponde
+  // (por ejemplo, bajamos el umbral de otro skin, o directamente cambió
+  // qué skin es cuál) te volvemos a Noir Clásico automáticamente — no
+  // hace falta que abras el selector para que se note. Los anónimos nunca
+  // tienen KILLs exitosos guardados (no tienen perfil), así que para
+  // ellos cualquier skin que no sea el gratuito directamente no corresponde.
+  useEffect(() => {
+    if (!user) return;
+    const killHits = user.isAnonymous ? 0 : (profile?.killHits ?? null);
+    if (killHits === null) return; // perfil todavía no cargó, no decidir a ciegas
+    const current = getSkinById(skinId);
+    if (killHits < current.killHitsRequired) {
+      setSkinId(DEFAULT_SKIN_ID);
+    }
+  }, [user, profile, skinId, setSkinId]);
 
   // Si al abrir la app hay una sala guardada de una sesión anterior (F5,
   // cierre de pestaña sin querer, etc.), confirmamos que todavía seas
@@ -63,8 +128,14 @@ export function SnitchApp() {
     checkRoomMembership(saved, user.uid)
       .then(({ valid, status }) => {
         if (valid) {
+          const nextScreen: Screen = status === 'playing' ? 'game' : 'lobby';
           setRoomCode(saved);
-          setScreen(status === 'playing' ? 'game' : 'lobby');
+          setScreen(nextScreen);
+          // replaceState, no pushState — esto es determinar dónde arranca
+          // la app al cargar (por una reconexión), no una navegación que
+          // hizo la persona, así que no debería sumar una entrada al
+          // historial.
+          window.history.replaceState({ screen: nextScreen, roomCode: saved } satisfies NavState, '');
         } else {
           clearActiveRoom();
         }
@@ -116,8 +187,7 @@ export function SnitchApp() {
 
   function enterRoom(code: string) {
     saveActiveRoom(code, uid);
-    setRoomCode(code);
-    setScreen('lobby');
+    navigate('lobby', code);
   }
 
   if (screen === 'home') {
@@ -127,26 +197,26 @@ export function SnitchApp() {
         defaultName={user.isAnonymous ? '' : (profile?.username ?? '')}
         isAnonymous={user.isAnonymous}
         onEnterRoom={enterRoom}
-        onOpenProfile={() => setScreen('profile')}
-        onOpenRules={() => setScreen('rules')}
-        onOpenRanking={() => setScreen('ranking')}
+        onOpenProfile={() => navigate('profile')}
+        onOpenRules={() => navigate('rules')}
+        onOpenRanking={() => navigate('ranking')}
       />
     );
   }
 
   if (screen === 'rules') {
-    return <RulesScreen onBack={() => setScreen('home')} />;
+    return <RulesScreen onBack={goBack} />;
   }
 
   if (screen === 'ranking') {
-    return <RankingScreen uid={uid} onBack={() => setScreen('home')} />;
+    return <RankingScreen uid={uid} onBack={goBack} />;
   }
 
   if (screen === 'profile') {
     return (
       <ProfileScreen
         uid={user.uid}
-        onBack={() => setScreen('home')}
+        onBack={goBack}
         onUsernameChanged={(username) => setProfile((prev) => (prev ? { ...prev, username } : prev))}
       />
     );
@@ -157,11 +227,10 @@ export function SnitchApp() {
       <Lobby
         roomCode={roomCode}
         uid={user.uid}
-        onGameStarted={() => setScreen('game')}
+        onGameStarted={() => navigate('game')}
         onExit={() => {
           clearActiveRoom();
-          setRoomCode(null);
-          setScreen('home');
+          navigate('home', null);
         }}
       />
     );
@@ -175,10 +244,9 @@ export function SnitchApp() {
         isAnonymous={user.isAnonymous}
         onExit={() => {
           clearActiveRoom();
-          setRoomCode(null);
-          setScreen('home');
+          navigate('home', null);
         }}
-        onReturnToLobby={() => setScreen('lobby')}
+        onReturnToLobby={goBack}
       />
     );
   }

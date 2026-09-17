@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { RANK_LABELS, SUIT_LABELS, questionLabel, validateQuestion } from '../game/askQuestions';
+import { RANK_LABELS, SUIT_LABELS, COLOR_LABELS, questionLabel, validateQuestion } from '../game/askQuestions';
 import type { AskQuestion, AskQuestionId, Rank, Suit } from '../game/types';
 
 const RANK_OPTIONS = Object.keys(RANK_LABELS).map((k) => Number(k) as Rank);
 const SUIT_OPTIONS = Object.keys(SUIT_LABELS) as Suit[];
+const COLOR_OPTIONS: ('red' | 'black')[] = ['red', 'black'];
 
 const QUESTION_MENU: { id: AskQuestionId; label: string }[] = [
   { id: 'GREATER_THAN', label: 'Mayor que X' },
@@ -12,6 +13,7 @@ const QUESTION_MENU: { id: AskQuestionId; label: string }[] = [
   { id: 'OF_SUIT', label: 'De palo X' },
   { id: 'BETWEEN_OF_SUIT', label: 'De palo X, entre X e Y' },
   { id: 'OF_VALUE', label: 'De valor X' },
+  { id: 'OF_COLOR', label: 'De color rojo/negro' },
   { id: 'REPEATED_VALUE_IN_HAND', label: '¿Alguien tiene o tuvo un valor repetido en su mano?' },
 ];
 
@@ -31,6 +33,7 @@ export function AskPicker({
   const [min, setMin] = useState<Rank>(1);
   const [max, setMax] = useState<Rank>(13);
   const [suit, setSuit] = useState<Suit>('spades');
+  const [color, setColor] = useState<'red' | 'black'>('red');
   const [error, setError] = useState<string | null>(null);
 
   const selectStyle = { fontSize: 18, padding: '8px 6px', minHeight: 40 };
@@ -56,6 +59,8 @@ export function AskPicker({
         return { id: 'BETWEEN_OF_SUIT', min, max, suit };
       case 'OF_SUIT':
         return { id: 'OF_SUIT', suit };
+      case 'OF_COLOR':
+        return { id: 'OF_COLOR', color };
       case 'REPEATED_VALUE_IN_HAND':
         return { id: 'REPEATED_VALUE_IN_HAND' };
     }
@@ -74,135 +79,173 @@ export function AskPicker({
 
   return (
     <div
-      className="snitch-panel-enter"
-      style={{ border: '2px solid var(--snitch-fg)', padding: 'clamp(8px, 3vw, 16px)', width: 'min(480px, 95vw)', margin: '0 auto', boxSizing: 'border-box' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.75)',
+        zIndex: 60,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+      }}
+      onClick={onCancel}
     >
-      <p style={{ fontSize: 'clamp(18px, 5vw, 20px)', marginTop: 0 }}>Elegí una pregunta:</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-        {QUESTION_MENU.map((q) => (
-          <button
-            key={q.id}
-            onClick={() => selectQuestion(q.id)}
-            style={{
-              textAlign: 'left',
-              minHeight: 48,
-              fontSize: 'clamp(16px, 4.5vw, 18px)',
-              padding: '10px 14px',
-              borderColor: selectedId === q.id ? 'var(--snitch-accent)' : undefined,
-            }}
-          >
-            {q.label}
-          </button>
-        ))}
-      </div>
-
-      {(selectedId === 'GREATER_THAN' || selectedId === 'LOWER_THAN' || selectedId === 'OF_VALUE') && (
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 18 }}>
-            Valor:{' '}
-            <select style={selectStyle} value={value} onChange={(e) => setValue(Number(e.target.value) as Rank)}>
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RANK_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
+      <div
+        className="snitch-panel-enter"
+        style={{
+          border: '2px solid var(--snitch-fg)',
+          background: 'var(--snitch-bg)',
+          padding: 'clamp(8px, 3vw, 16px)',
+          width: 'min(480px, 95vw)',
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          boxSizing: 'border-box',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p style={{ fontSize: 'clamp(18px, 5vw, 20px)', marginTop: 0 }}>Elegí una pregunta:</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+          {QUESTION_MENU.map((q) => (
+            <button
+              key={q.id}
+              onClick={() => selectQuestion(q.id)}
+              style={{
+                textAlign: 'left',
+                minHeight: 48,
+                fontSize: 'clamp(16px, 4.5vw, 18px)',
+                padding: '10px 14px',
+                borderColor: selectedId === q.id ? 'var(--snitch-accent)' : undefined,
+              }}
+            >
+              {q.label}
+            </button>
+          ))}
         </div>
-      )}
 
-      {selectedId === 'BETWEEN' && (
-        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <label style={{ fontSize: 18 }}>
-            Mínimo:{' '}
-            <select style={selectStyle} value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RANK_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: 18 }}>
-            Máximo:{' '}
-            <select style={selectStyle} value={max} onChange={(e) => setMax(Number(e.target.value) as Rank)}>
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RANK_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      {selectedId === 'OF_SUIT' && (
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ fontSize: 18 }}>
-            Palo:{' '}
-            <select style={selectStyle} value={suit} onChange={(e) => setSuit(e.target.value as Suit)}>
-              {SUIT_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {SUIT_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      {selectedId === 'BETWEEN_OF_SUIT' && (
-        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <label style={{ fontSize: 18 }}>
-            Palo:{' '}
-            <select style={selectStyle} value={suit} onChange={(e) => setSuit(e.target.value as Suit)}>
-              {SUIT_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {SUIT_LABELS[s]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: 18 }}>
-            Mínimo:{' '}
-            <select style={selectStyle} value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RANK_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label style={{ fontSize: 18 }}>
-            Máximo:{' '}
-            <select style={selectStyle} value={max} onChange={(e) => setMax(Number(e.target.value) as Rank)}>
-              {RANK_OPTIONS.map((r) => (
-                <option key={r} value={r}>
-                  {RANK_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
-        <p style={{ fontSize: 16, color: 'var(--snitch-muted)' }}>
-          Vista previa: "{questionLabel(buildQuestion()!)}"
-        </p>
-      )}
-
-      {error && <p style={{ color: 'var(--snitch-accent)', fontSize: 16 }}>{error}</p>}
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
-          <button className="snitch-btn-accent" onClick={handleConfirm} style={{ minHeight: 44 }}>
-            Confirmar
-          </button>
+        {(selectedId === 'GREATER_THAN' || selectedId === 'LOWER_THAN' || selectedId === 'OF_VALUE') && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 18 }}>
+              Valor:{' '}
+              <select style={selectStyle} value={value} onChange={(e) => setValue(Number(e.target.value) as Rank)}>
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RANK_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
-        <button onClick={onCancel} style={{ minHeight: 44 }}>
-          Cancelar
-        </button>
+
+        {selectedId === 'BETWEEN' && (
+          <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <label style={{ fontSize: 18 }}>
+              Mínimo:{' '}
+              <select style={selectStyle} value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RANK_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 18 }}>
+              Máximo:{' '}
+              <select style={selectStyle} value={max} onChange={(e) => setMax(Number(e.target.value) as Rank)}>
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RANK_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {selectedId === 'OF_SUIT' && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 18 }}>
+              Palo:{' '}
+              <select style={selectStyle} value={suit} onChange={(e) => setSuit(e.target.value as Suit)}>
+                {SUIT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {SUIT_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {selectedId === 'OF_COLOR' && (
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 18 }}>
+              Color:{' '}
+              <select style={selectStyle} value={color} onChange={(e) => setColor(e.target.value as 'red' | 'black')}>
+                {COLOR_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {COLOR_LABELS[c]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {selectedId === 'BETWEEN_OF_SUIT' && (
+          <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <label style={{ fontSize: 18 }}>
+              Palo:{' '}
+              <select style={selectStyle} value={suit} onChange={(e) => setSuit(e.target.value as Suit)}>
+                {SUIT_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {SUIT_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 18 }}>
+              Mínimo:{' '}
+              <select style={selectStyle} value={min} onChange={(e) => setMin(Number(e.target.value) as Rank)}>
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RANK_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ fontSize: 18 }}>
+              Máximo:{' '}
+              <select style={selectStyle} value={max} onChange={(e) => setMax(Number(e.target.value) as Rank)}>
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {RANK_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
+          <p style={{ fontSize: 16, color: 'var(--snitch-muted)' }}>
+            Vista previa: "{questionLabel(buildQuestion()!)}"
+          </p>
+        )}
+
+        {error && <p style={{ color: 'var(--snitch-accent)', fontSize: 16 }}>{error}</p>}
+
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {selectedId && !NO_PARAM_QUESTIONS.includes(selectedId) && (
+            <button className="snitch-btn-accent" onClick={handleConfirm} style={{ minHeight: 44 }}>
+              Confirmar
+            </button>
+          )}
+          <button onClick={onCancel} style={{ minHeight: 44 }}>
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -208,7 +208,7 @@ export function HomeScreen({
         </button>
       </div>
 
-      {showSkinPicker && <SkinPicker onClose={() => setShowSkinPicker(false)} />}
+      {showSkinPicker && <SkinPicker uid={uid} onClose={() => setShowSkinPicker(false)} />}
 
       {showSkinDisclaimer && (
         <div

@@ -23,13 +23,13 @@ function CardFace({ card }: { card: Card }) {
 
   if (card.kind === 'joker') {
     return (
-      <div style={{ ...base, borderColor: '#e8291c' }}>
+      <div style={{ ...base, borderColor: 'var(--snitch-accent)' }}>
         <Avatar alive size={72} />
       </div>
     );
   }
 
-  const color = isRedSuit(card.suit) ? '#e8291c' : '#0a0a0a';
+  const color = isRedSuit(card.suit) ? 'var(--snitch-accent)' : 'var(--snitch-black-suit-color)';
   return (
     <div style={base} aria-label={cardLabel(card)}>
       <span style={{ color: '#0a0a0a' }}>{RANK_LABELS[card.rank]}</span>
@@ -65,11 +65,11 @@ export const VictoryCard = forwardRef<
       </div>
 
       <div style={{ padding: 20, lineHeight: 0 }}>
-        <Avatar alive={won} size={280} glow glowColor={won ? '#e8291c' : '#4a4a4a'} />
+        <Avatar alive={won} size={280} glow glowColor={won ? undefined : 'var(--snitch-muted)'} />
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 32, color: '#e8291c', margin: '0 0 16px' }}>
+        <p style={{ fontFamily: "'Press Start 2P', monospace", fontSize: 32, color: 'var(--snitch-accent)', margin: '0 0 16px' }}>
           {won ? 'GANADOR' : 'PERDEDOR'}
         </p>
         <p style={{ fontSize: 72, color: '#f5f5f0', margin: 0, maxWidth: 950, wordBreak: 'break-word' }}>

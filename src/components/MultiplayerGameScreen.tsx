@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee, announcePlayerLeft } from '../firebase/gameSync';
+import { subscribeToGameState, subscribeToOwnHand, submitAction, startHostReferee, announcePlayerLeft, sendEmote } from '../firebase/gameSync';
 import type { SyncedGameState } from '../firebase/gameSync';
+import { EmotePicker } from './EmotePicker';
+import { getEmotePhrase } from '../game/emotes';
 import { subscribeToRoom, resetRoomToLobby, leaveRoom, HOST_STALE_THRESHOLD_MS } from '../firebase/rooms';
 import { useHostPresence } from '../hooks/useHostPresence';
 import { isHostStale } from '../hooks/hostPresenceLogic';
@@ -28,6 +30,11 @@ import '../styles/theme.css';
 
 type PanelState = 'closed' | 'kill' | 'ask';
 const REVEAL_DURATION_MS = 1000;
+// Tiene que coincidir con la duración de la animación
+// snitch-emote-bubble-anim en theme.css — mismo truco que con la carta
+// revelada y el toast de logros.
+const EMOTE_DISPLAY_MS = 3000;
+const EMOTE_COOLDOWN_MS = 2000;
 
 export function MultiplayerGameScreen({
   roomCode,
@@ -51,6 +58,11 @@ export function MultiplayerGameScreen({
   const lastRevealSeen = useRef<number | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAchievementEventSeen = useRef<number | null>(null);
+  const lastEmoteSeen = useRef<number | null>(null);
+  const lastEmoteSentAt = useRef<number>(0);
+  const [visibleEmote, setVisibleEmote] = useState<{ playerId: string; text: string; key: number } | null>(null);
+  const [showEmotePicker, setShowEmotePicker] = useState(false);
+  const [emoteCooldownTick, setEmoteCooldownTick] = useState(0); // solo para forzar un re-render cada segundo mientras el picker está abierto
   const statsRecorded = useRef(false);
   const { current: currentToast, pushAchievements } = useAchievementToastQueue();
   const [rankChange, setRankChange] = useState<{ from: Tier; to: Tier; delta: number } | null>(null);
@@ -216,6 +228,43 @@ export function MultiplayerGameScreen({
     if (mine) pushAchievements(mine);
   }, [gs?.liveAchievementEvent, uid, pushAchievements]);
 
+  // Cuando aparece un liveEmoteEvent NUEVO (de cualquier jugador, incluido
+  // uno mismo), lo mostramos como globito sobre SU asiento por unos
+  // segundos y listo — no hace falta avisarle a Firestore cuando termina,
+  // cada cliente lo oculta solo con su propio timer.
+  useEffect(() => {
+    const event = gs?.liveEmoteEvent;
+    if (!event) return;
+    if (event.sentAt === lastEmoteSeen.current) return;
+    lastEmoteSeen.current = event.sentAt;
+
+    const phrase = getEmotePhrase(event.phraseId);
+    if (!phrase) return;
+    setVisibleEmote({ playerId: event.playerId, text: phrase.text, key: event.sentAt });
+    const t = setTimeout(() => setVisibleEmote(null), EMOTE_DISPLAY_MS);
+    return () => clearTimeout(t);
+  }, [gs?.liveEmoteEvent]);
+
+  // Mientras el selector de frases está abierto, refrescamos cada 1s para
+  // que la cuenta regresiva del enfriamiento se vea en vivo (si no,
+  // quedaría pegado en el número que tenía al abrirlo).
+  useEffect(() => {
+    if (!showEmotePicker) return;
+    const interval = setInterval(() => setEmoteCooldownTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [showEmotePicker]);
+  void emoteCooldownTick; // no se lee directo — su única función es forzar este re-render cada 1s
+
+  async function handleSendEmote(phraseId: string) {
+    const elapsed = Date.now() - lastEmoteSentAt.current;
+    if (elapsed < EMOTE_COOLDOWN_MS) return; // el botón ya debería estar disabled, pero por las dudas
+    lastEmoteSentAt.current = Date.now();
+    setShowEmotePicker(false);
+    await sendEmote(roomCode, uid, phraseId).catch(() => {
+      lastEmoteSentAt.current = 0; // si falló el envío, no hacerle pagar el enfriamiento igual
+    });
+  }
+
   // Registrar el resultado (ganó/perdió) una sola vez, y solo si no es
   // anónimo. Cada navegador registra ÚNICAMENTE su propio resultado, nunca
   // el de otro jugador.
@@ -353,6 +402,7 @@ export function MultiplayerGameScreen({
         name: pub.name,
         isYou: playerId === uid,
         palette: { stroke: skin.accent, fill: getAvatarFillColor(skin) },
+        headId: pub.headId,
       };
     });
     return <MatchIntroScreen players={introPlayers} onSkip={() => setShowIntro(false)} />;
@@ -392,6 +442,9 @@ export function MultiplayerGameScreen({
       // así que no les mostramos el distintivo.
       tier: gs.isAnonymous[playerId] ? null : getTier(skillOrdinal(pub.skill)),
       palette: { stroke: getSkinById(pub.skinId).accent, fill: getAvatarFillColor(getSkinById(pub.skinId)) },
+      headId: pub.headId,
+      activeEmoteText: visibleEmote?.playerId === playerId ? visibleEmote.text : null,
+      activeEmoteKey: visibleEmote?.playerId === playerId ? visibleEmote.key : null,
       cardStates: isYou
         ? myHand.map((card) => ({ kind: 'faceup' as const, card }))
         : Array.from({ length: pub.handCount }, () => ({ kind: 'hidden' as const })),
@@ -539,6 +592,20 @@ export function MultiplayerGameScreen({
 
       {panel === 'kill' && <KillPicker onPick={handleKill} onCancel={() => setPanel('closed')} />}
       {panel === 'ask' && <AskPicker onSubmit={handleAsk} onCancel={() => setPanel('closed')} />}
+
+      <div style={{ textAlign: 'center', marginTop: 12 }}>
+        <button onClick={() => setShowEmotePicker(true)} style={{ fontSize: 13 }}>
+          💬 Decir algo
+        </button>
+      </div>
+
+      {showEmotePicker && (
+        <EmotePicker
+          onPick={handleSendEmote}
+          onClose={() => setShowEmotePicker(false)}
+          cooldownRemaining={Math.max(0, Math.ceil((EMOTE_COOLDOWN_MS - (Date.now() - lastEmoteSentAt.current)) / 1000))}
+        />
+      )}
     </div>
   );
 }

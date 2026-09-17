@@ -80,7 +80,7 @@ export function CardSlot({ state, size = 34 }: { state: CardSlotState; size?: nu
     );
   }
 
-  const suitColor = isRedSuit(card.suit) ? 'var(--snitch-accent)' : 'var(--snitch-card-ink)';
+  const suitColor = isRedSuit(card.suit) ? 'var(--snitch-accent)' : 'var(--snitch-black-suit-color)';
 
   return (
     <div

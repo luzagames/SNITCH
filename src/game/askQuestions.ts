@@ -24,6 +24,11 @@ export const SUIT_LABELS: Record<Suit, string> = {
   clubs: 'Tréboles',
 };
 
+export const COLOR_LABELS: Record<'red' | 'black', string> = {
+  red: 'Rojo',
+  black: 'Negro',
+};
+
 // Lanza un error descriptivo si la pregunta está mal formada. Se llama
 // siempre antes de resolver un ASK, tanto en el cliente (feedback rápido)
 // como del lado server-authoritative (Cloud Function) para no confiar
@@ -61,6 +66,11 @@ export function validateQuestion(q: AskQuestion): void {
     case 'REPEATED_VALUE_IN_HAND':
       // No requiere parámetros.
       break;
+    case 'OF_COLOR':
+      if (q.color === undefined) {
+        throw new Error('La pregunta OF_COLOR requiere un color (color)');
+      }
+      break;
     default:
       throw new Error(`Tipo de pregunta desconocido: ${q.id}`);
   }
@@ -84,6 +94,8 @@ export function questionLabel(q: AskQuestion): string {
       return `¿Alguien tiene una carta de valor ${RANK_LABELS[q.value as Rank]}?`;
     case 'REPEATED_VALUE_IN_HAND':
       return '¿Alguien tiene o tuvo un valor repetido en su mano?';
+    case 'OF_COLOR':
+      return `¿Alguien tiene una carta de color ${COLOR_LABELS[q.color as 'red' | 'black'].toLowerCase()}?`;
     default:
       return 'Pregunta desconocida';
   }

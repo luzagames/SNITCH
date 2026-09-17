@@ -2,6 +2,7 @@ import { doc, getDoc, getDocs, setDoc, updateDoc, increment, runTransaction, col
 import { db } from './config';
 import type { MatchStatsAccumulator } from './gameSyncLogic';
 import type { AchievementId } from '../game/achievements';
+import { computeLifetimeAchievements } from '../game/achievements';
 import { DEFAULT_SKILL, skillOrdinal, updateSkillRatings, getTier } from '../game/rank';
 import type { SkillRating, Tier } from '../game/rank';
 import type { Card } from '../game/types';
@@ -38,6 +39,11 @@ export interface UserProfile {
   // FavoriteHandPicker.tsx). Vacío (0 cartas) significa que todavía no
   // eligió ninguna. El logro "En mi salsa" se compara contra esto.
   favoriteCards: Card[];
+  // Qué gorro coleccionable tenés puesto ahora — 'original' por defecto.
+  // Cuáles están DESBLOQUEADOS no se guarda aparte, se calcula solo a
+  // partir de wins (ver getUnlockedHeads en game/heads.ts) — no hace
+  // falta duplicar ese dato acá.
+  equippedHeadId: string;
 }
 
 const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
@@ -59,6 +65,7 @@ const DEFAULT_PROFILE: Omit<UserProfile, 'username'> = {
   sigma: DEFAULT_SKILL.sigma,
   skillRating: skillOrdinal(DEFAULT_SKILL),
   favoriteCards: [],
+  equippedHeadId: 'original',
 };
 
 function profileRef(uid: string) {
@@ -144,6 +151,7 @@ function fillDefaults(raw: Partial<UserProfile>): UserProfile {
     sigma,
     skillRating: raw.skillRating !== undefined ? numOr0(raw.skillRating) : skillOrdinal({ mu, sigma }),
     favoriteCards: Array.isArray(raw.favoriteCards) ? raw.favoriteCards : [],
+    equippedHeadId: typeof raw.equippedHeadId === 'string' ? raw.equippedHeadId : 'original',
   };
 }
 
@@ -158,6 +166,10 @@ export async function updateFavoriteCards(uid: string, cards: Card[]): Promise<v
   await updateDoc(profileRef(uid), { favoriteCards: cards.slice(0, 3) });
 }
 
+export async function updateEquippedHead(uid: string, headId: string): Promise<void> {
+  await updateDoc(profileRef(uid), { equippedHeadId: headId });
+}
+
 // Devuelve el número tal cual si es válido, o 0 si es undefined (perfiles
 // viejos, de antes de que existiera este campo) o NaN (perfiles que ya
 // quedaron "contaminados" por el bug de undefined + número = NaN). Así,
@@ -165,18 +177,6 @@ export async function updateFavoriteCards(uid: string, cards: Card[]): Promise<v
 // escribe, sin necesidad de migrar nada a mano.
 function numOr0(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-// Logros que dependen de números ACUMULADOS de por vida (no de una
-// partida puntual). Se evalúan contra el perfil YA actualizado con la
-// partida que se acaba de jugar.
-function computeLifetimeAchievements(updated: UserProfile): AchievementId[] {
-  const unlocked: AchievementId[] = [];
-  if (updated.currentStreak >= 3) unlocked.push('snitcher_pro');
-  if (updated.wins >= 30) unlocked.push('gordo_vicio');
-  if (updated.successfulBluffs >= 25) unlocked.push('versero');
-  if (updated.jokersCaught >= 15) unlocked.push('payas_off');
-  return unlocked;
 }
 
 // Registra el resultado + todas las estadísticas + los logros + el nuevo
@@ -259,7 +259,7 @@ export async function recordMatchStats(
       favoriteCards,
     };
 
-    const lifetimeUnlocked = computeLifetimeAchievements(updated);
+    const lifetimeUnlocked = computeLifetimeAchievements(updated, oldTier, newTier);
     const allCandidates = [...matchAchievements, ...lifetimeUnlocked];
     if (gotEnMiSalsa) allCandidates.push('en_mi_salsa');
     const already = new Set(updated.achievements);

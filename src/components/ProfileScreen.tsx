@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { getProfileAndRepair, updateUsername } from '../firebase/profile';
+import { getProfileAndRepair, updateUsername, updateEquippedHead } from '../firebase/profile';
 import type { UserProfile } from '../firebase/profile';
 import { ACHIEVEMENTS } from '../game/achievements';
 import type { AchievementRarity } from '../game/achievements';
-import { getTier, getNextTier, skillOrdinal } from '../game/rank';
+import { getTier, getNextTier, skillOrdinal, computeTierProgress } from '../game/rank';
 import { RankGemIcon } from './RankGemIcon';
 import { CardSlot } from './CardSlot';
 import { FavoriteHandPicker } from './FavoriteHandPicker';
+import { HeadPicker } from './HeadPicker';
+import { Avatar } from './Avatar';
+import { getHeadDesign } from '../game/heads';
 import { LoadingScreen } from './LoadingScreen';
 import '../styles/theme.css';
 
@@ -27,6 +30,7 @@ export function ProfileScreen({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFavoriteHandPicker, setShowFavoriteHandPicker] = useState(false);
+  const [showHeadPicker, setShowHeadPicker] = useState(false);
 
   useEffect(() => {
     getProfileAndRepair(uid)
@@ -82,9 +86,7 @@ export function ProfileScreen({
   const ordinal = skillOrdinal({ mu: profile.mu, sigma: profile.sigma });
   const tier = getTier(ordinal);
   const nextTier = getNextTier(tier.id);
-  const progressPct = nextTier
-    ? Math.min(100, Math.round(((ordinal - tier.minOrdinal) / (nextTier.minOrdinal - tier.minOrdinal)) * 100))
-    : 100;
+  const progressPct = computeTierProgress(ordinal, tier, nextTier);
 
   return (
     <div className="snitch-root" style={{ padding: 'clamp(16px, 6vw, 40px)', textAlign: 'center' }}>
@@ -135,6 +137,27 @@ export function ProfileScreen({
       )}
 
       {error && <p style={{ color: 'var(--snitch-accent)', fontSize: 14 }}>{error}</p>}
+
+      <div style={{ margin: '0 0 16px' }}>
+        <Avatar alive headId={profile.equippedHeadId} size={72} />
+        <div>
+          <button onClick={() => setShowHeadPicker(true)} style={{ marginTop: 6, fontSize: 12 }}>
+            {getHeadDesign(profile.equippedHeadId).name.toUpperCase()} — CAMBIAR
+          </button>
+        </div>
+      </div>
+
+      {showHeadPicker && (
+        <HeadPicker
+          wins={profile.wins}
+          equippedHeadId={profile.equippedHeadId}
+          onEquip={(headId) => {
+            updateEquippedHead(uid, headId).catch(() => {});
+            setProfile((prev) => (prev ? { ...prev, equippedHeadId: headId } : prev));
+          }}
+          onClose={() => setShowHeadPicker(false)}
+        />
+      )}
 
       <div style={{ maxWidth: 280, margin: '0 auto 20px' }}>
         <p

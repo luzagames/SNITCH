@@ -5,6 +5,7 @@ export interface IntroPlayer {
   name: string;
   isYou: boolean;
   palette: { stroke: string; fill: string };
+  headId: string;
 }
 
 export function MatchIntroScreen({ players, onSkip }: { players: IntroPlayer[]; onSkip: () => void }) {
@@ -45,7 +46,7 @@ export function MatchIntroScreen({ players, onSkip }: { players: IntroPlayer[]; 
             className="snitch-intro-player-pop"
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, animationDelay: `${i * 0.12}s` }}
           >
-            <Avatar alive size={72} palette={p.palette} />
+            <Avatar alive size={72} palette={p.palette} headId={p.headId} />
             <span style={{ fontSize: 16 }}>
               {p.name}
               {p.isYou ? ' (vos)' : ''}

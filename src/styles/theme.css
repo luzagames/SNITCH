@@ -16,6 +16,17 @@
   --snitch-card-paper: #f5f5f0;
   --snitch-card-ink: #16130f;
 
+  /* El color del palo NEGRO específicamente (picas/tréboles) — separado
+     de --snitch-card-ink (que también define el borde de la carta y el
+     número) para poder cambiarlo por skin SIN mover esas otras dos cosas
+     de paso. Apunta a --snitch-bg (el tono más oscuro de cada skin) en
+     vez de un valor fijo — como es una REFERENCIA, no hace falta pisarla
+     en cada uno de los 12 bloques de skin de más abajo: se resuelve sola
+     contra el --snitch-bg que esté activo en cada caso. Verificado a mano
+     que en los 13 skins actuales el bg queda suficientemente lejos del
+     accent (que es el color del palo rojo) como para no confundirse.*/
+  --snitch-black-suit-color: var(--snitch-bg);
+
   /* El color de "piel" del avatar, aparte de --snitch-fg — para la
      mayoría de los skins es el mismo tono (por eso el valor por
      defecto), pero algunos (como Bostero) quieren una piel de un color
@@ -602,5 +613,87 @@ body,
   100% {
     transform: scale(1) translateY(0);
     opacity: 1;
+  }
+}
+
+/* --- Balanceo sutil ("respiración") en los jugadores sin turno --- */
+/* Muy leve a propósito — la idea es que la mesa no se sienta una foto
+   quieta, no que compita visualmente con el brillo del turno actual (que
+   ya tiene su propia animación, por eso esto solo se aplica a quien NO
+   tiene el turno). */
+.snitch-idle-breathe {
+  animation: snitch-idle-breathe-anim 3.4s ease-in-out infinite;
+}
+
+@keyframes snitch-idle-breathe-anim {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.015);
+  }
+}
+
+/* --- Globito de chat sobre el avatar --- */
+/* Dura EXACTAMENTE lo mismo que EMOTE_DISPLAY_MS en
+   MultiplayerGameScreen.tsx (3000ms) — mismo truco que la carta y el
+   toast de logros, para que no se note el corte cuando el código lo saca
+   del DOM. */
+.snitch-emote-bubble {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  background: var(--snitch-bg);
+  border: 3px solid var(--snitch-accent);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+  color: var(--snitch-fg);
+  padding: 10px 14px;
+  font-family: var(--snitch-font-display);
+  font-size: 11px;
+  line-height: 1.4;
+  max-width: min(220px, 60vw);
+  text-align: center;
+  white-space: nowrap;
+  z-index: 10;
+  animation: snitch-emote-bubble-anim 3000ms ease-out forwards;
+}
+
+/* La colita: un cuadradito girado 45°, con solo 2 de sus 4 bordes
+   pintados — el mismo truco de siempre para armar una "flechita" con
+   bordes rectos, sin usar ningún redondeo (nada de border-radius en
+   toda la estética SNITCH, la colita no iba a ser la excepción). */
+.snitch-emote-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -8px;
+  background: var(--snitch-bg);
+  border-right: 3px solid var(--snitch-accent);
+  border-bottom: 3px solid var(--snitch-accent);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+@keyframes snitch-emote-bubble-anim {
+  0% {
+    transform: translateX(-50%) scale(0.5);
+    opacity: 0;
+  }
+  10% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  85% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(0.9);
+    opacity: 0;
   }
 }

@@ -68,7 +68,8 @@ export type AskQuestionId =
   | 'OF_SUIT'
   | 'OF_VALUE'
   | 'REPEATED_VALUE_IN_HAND'
-  | 'BETWEEN_OF_SUIT';
+  | 'BETWEEN_OF_SUIT'
+  | 'OF_COLOR';
 
 export interface AskQuestion {
   id: AskQuestionId;
@@ -77,6 +78,7 @@ export interface AskQuestion {
   min?: Rank;
   max?: Rank;
   suit?: Suit;
+  color?: 'red' | 'black';
 }
 
 export interface AskResult {

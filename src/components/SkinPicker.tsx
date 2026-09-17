@@ -1,8 +1,30 @@
+import { useEffect, useState } from 'react';
 import { SKINS } from '../game/skins';
 import { useSkin } from '../hooks/useSkin';
+import { getProfileAndRepair } from '../firebase/profile';
 
-export function SkinPicker({ onClose }: { onClose: () => void }) {
+export function SkinPicker({ uid, onClose }: { uid: string; onClose: () => void }) {
   const { skinId, setSkinId } = useSkin();
+  const [killHits, setKillHits] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getProfileAndRepair(uid)
+      .then((profile) => {
+        if (!cancelled) setKillHits(profile?.killHits ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setKillHits(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  // Mientras no sabemos cuántos KILLs exitosos tenés, no mostramos nada
+  // como bloqueado ni desbloqueado todavía — total es un parpadeo de medio
+  // segundo como mucho, no vale la pena una pantalla de carga aparte.
+  const loaded = killHits !== null;
 
   return (
     <div
@@ -38,10 +60,12 @@ export function SkinPicker({ onClose }: { onClose: () => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {SKINS.map((skin) => {
             const selected = skin.id === skinId;
+            const unlocked = !loaded || killHits >= skin.killHitsRequired;
             return (
               <button
                 key={skin.id}
-                onClick={() => setSkinId(skin.id)}
+                onClick={() => unlocked && setSkinId(skin.id)}
+                disabled={loaded && !unlocked}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -52,12 +76,13 @@ export function SkinPicker({ onClose }: { onClose: () => void }) {
                   background: 'transparent',
                   fontSize: 16,
                   width: '100%',
+                  opacity: unlocked ? 1 : 0.6,
                 }}
               >
                 {/* Muestra de colores: un cuadradito con el fondo/acento
                     reales de ESE skin (no del actual), para que se vea
                     antes de elegirlo. */}
-                <span style={{ display: 'flex', flexShrink: 0, border: '1px solid #0003' }}>
+                <span style={{ display: 'flex', flexShrink: 0, border: '1px solid #0003', filter: unlocked ? 'none' : 'grayscale(1)' }}>
                   <span style={{ width: 14, height: 28, background: skin.bg }} />
                   <span style={{ width: 14, height: 28, background: skin.accent }} />
                   <span style={{ width: 14, height: 28, background: skin.fg }} />
@@ -67,7 +92,15 @@ export function SkinPicker({ onClose }: { onClose: () => void }) {
                     {skin.name}
                     {selected ? ' ✓' : ''}
                   </span>
-                  <span style={{ display: 'block', fontSize: 12, color: 'var(--snitch-muted)' }}>{skin.description}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--snitch-muted)' }}>
+                    {!loaded
+                      ? skin.description
+                      : unlocked
+                        ? skin.killHitsRequired === 0
+                          ? skin.description
+                          : `Desbloqueado (${skin.killHitsRequired} KILLs exitosos)`
+                        : `🔒 Necesitás ${skin.killHitsRequired} KILLs exitosos (tenés ${killHits})`}
+                  </span>
                 </span>
               </button>
             );
